@@ -29,6 +29,7 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
     private Dictionary<string, AppUsage> _usage = [];
     private IReadOnlyList<AppEntry> _cachedApps = [];
     private Task _initialScanTask = Task.CompletedTask;
+    private string? _lastExternalAppId;
     private bool _disposed;
 
     private readonly ILauncherSource[] _sources;
@@ -162,6 +163,69 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
         UsageChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    public void RecordExternalAppActivation(string appNameOrClass)
+    {
+        if (string.IsNullOrWhiteSpace(appNameOrClass) || appNameOrClass.Contains("pankin", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        IReadOnlyList<AppEntry> apps;
+        lock (_lock)
+        {
+            apps = _cachedApps;
+        }
+
+        if (apps.Count == 0) return;
+
+        var tokens = appNameOrClass.Split(new[] { ' ', '/', '\\' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        AppEntry? matchedApp = null;
+        foreach (var app in apps)
+        {
+            var execName = Path.GetFileNameWithoutExtension(AppDeduplication.NormalizeExec(app.Exec));
+
+            bool isMatch = string.Equals(app.Id, appNameOrClass, StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(execName, appNameOrClass, StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(app.Name, appNameOrClass, StringComparison.OrdinalIgnoreCase) ||
+                           appNameOrClass.Contains(app.Name, StringComparison.OrdinalIgnoreCase) ||
+                           (!string.IsNullOrEmpty(execName) && appNameOrClass.Contains(execName, StringComparison.OrdinalIgnoreCase));
+
+            if (!isMatch)
+            {
+                foreach (var token in tokens)
+                {
+                    if (string.Equals(app.Id, token, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(execName, token, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(app.Name, token, StringComparison.OrdinalIgnoreCase) ||
+                        token.Contains(app.Name, StringComparison.OrdinalIgnoreCase) ||
+                        (!string.IsNullOrEmpty(execName) && token.Contains(execName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        isMatch = true;
+                        break;
+                    }
+                }
+            }
+
+            if (isMatch)
+            {
+                matchedApp = app;
+                break;
+            }
+        }
+
+        if (matchedApp != null)
+        {
+            lock (_lock)
+            {
+                if (string.Equals(_lastExternalAppId, matchedApp.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+                _lastExternalAppId = matchedApp.Id;
+            }
+            RecordUsage(matchedApp.Id);
+        }
+    }
+
     public Task RefreshAppsAsync(CancellationToken ct = default)
     {
         lock (_lock)
@@ -190,7 +254,19 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
 
     public void RefreshApps() => _ = RefreshAppsAsync(_lifetimeCts.Token);
 
-    private SourceContext BuildContext(string query)
+    public static bool IsValidFileQuery(string query, bool isExplicit = false)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return false;
+        var trimmed = query.Trim();
+        if (isExplicit) return trimmed.Length > 0;
+        if (trimmed.StartsWith("f ", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed.Length > 2 && !string.IsNullOrWhiteSpace(trimmed[2..]);
+        }
+        return trimmed.Length >= 2 || (trimmed.Length == 1 && trimmed[0] > 127);
+    }
+
+    private SourceContext BuildContext(string query, bool isFileExplicit = false)
     {
         IReadOnlyList<AppEntry> apps;
         Dictionary<string, AppUsage> usageCopy;
@@ -205,10 +281,14 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
             apps,
             _settingsStore.Current.Launcher,
             usageCopy,
-            _settingsStore.Current);
+            _settingsStore.Current,
+            isFileExplicit);
     }
 
-    public async Task<LauncherResult> SearchAsync(string query, CancellationToken cancellationToken = default)
+    public Task<LauncherResult> SearchAsync(string query, CancellationToken cancellationToken = default) =>
+        SearchAsync(query, isFileExplicit: false, cancellationToken);
+
+    public async Task<LauncherResult> SearchAsync(string query, bool isFileExplicit, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -217,7 +297,7 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
             return _terminalService.Search(query);
         }
 
-        var context = BuildContext(query);
+        var context = BuildContext(query, isFileExplicit);
         var tasks = _sources
             .OrderBy(s => s.Order)
             .Select(s => SearchSourceSafelyAsync(s, context, cancellationToken))
@@ -232,9 +312,16 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
         return new LauncherResult(allItems, context.Query.Length == 0, fileCount);
     }
 
+    public Task<LauncherResult> SearchAsync(
+        string query,
+        Action<LauncherResult> partial,
+        CancellationToken cancellationToken = default) =>
+        SearchAsync(query, partial, isFileExplicit: false, cancellationToken);
+
     public async Task<LauncherResult> SearchAsync(
         string query,
         Action<LauncherResult> partial,
+        bool isFileExplicit,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -246,7 +333,7 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
             return res;
         }
 
-        var context = BuildContext(query);
+        var context = BuildContext(query, isFileExplicit);
 
         // 快慢来源分离：本地轻量来源立即返回，远程/磁盘大扫描异步返回，并按 Order 严格归并确保目录与文件优先于网页搜索
         var fastSources = _sources.Where(s => s is not FileSource).OrderBy(s => s.Order).ToArray();
@@ -262,7 +349,7 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
             partial(new LauncherResult(fastItems, context.Query.Length == 0, 0));
         }
 
-        if (slowSources.Length == 0 || context.Query.Length < 2)
+        if (slowSources.Length == 0 || !IsValidFileQuery(context.Query, context.IsFileExplicit))
         {
             return new LauncherResult(fastItems, context.Query.Length == 0, 0);
         }

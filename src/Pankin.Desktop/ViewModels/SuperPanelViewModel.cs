@@ -169,6 +169,15 @@ public partial class SuperPanelViewModel : ViewModelBase
 
         SourceText = text.Trim();
 
+        var settings = _context.SettingsStore.Current;
+        if (!settings.Modules.Ai || !settings.Ai.Enabled || mode == "action")
+        {
+            IsChatMode = false;
+            IsSettingsExpanded = false;
+            TranslationResult = "已捕获选中文本，可直接点击下方快捷动作执行操作。";
+            return;
+        }
+
         if (mode == "chat")
         {
             IsChatMode = true;
@@ -233,7 +242,7 @@ public partial class SuperPanelViewModel : ViewModelBase
         catch (AiCredentialException)
         {
             TranslationResult = Strings.Get("SuperPanel_NoApiKey");
-            IsSettingsExpanded = true;
+            IsSettingsExpanded = false;
         }
         catch (Exception ex)
         {
@@ -295,7 +304,7 @@ public partial class SuperPanelViewModel : ViewModelBase
         catch (AiCredentialException)
         {
             assistantMsg.Content = "⚠️ 未配置有效 API Key，请点击右上角⚙️配置。";
-            IsSettingsExpanded = true;
+            IsSettingsExpanded = false;
         }
         catch (Exception ex)
         {

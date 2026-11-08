@@ -45,6 +45,9 @@ public sealed class DesktopAppContext : IDisposable
     public FolderJumpStore FolderJumpStore { get; }
     public ISetupWizardService SetupWizardService { get; }
 
+    private readonly CancellationTokenSource _windowWatcherCts = new();
+    private Task? _windowWatcherTask;
+    private string? _lastForegroundApp;
     private bool _isDisposed;
 
     public DesktopAppContext()
@@ -81,7 +84,7 @@ public sealed class DesktopAppContext : IDisposable
         SetupWizardService = new SetupWizardService();
 
         UpdateService = new UpdateService(
-            currentVersion: "0.1.0",
+            currentVersion: "0.2.0",
             automatic: () => SettingsStore.Current.Update.AutoUpdate,
             openReleaseUrlOrInstall: url => _ = ActionHost.OpenAsync(url));
 
@@ -115,6 +118,7 @@ public sealed class DesktopAppContext : IDisposable
             folderJumpStore: FolderJumpStore);
 
         SettingsStore.Changed += OnSettingsChanged;
+        StartWindowWatcher();
     }
 
     public async Task InitializeAsync(CancellationToken ct = default)
@@ -167,10 +171,53 @@ public sealed class DesktopAppContext : IDisposable
         };
     }
 
+    private void StartWindowWatcher()
+    {
+        _windowWatcherTask = Task.Run(async () =>
+        {
+            var token = _windowWatcherCts.Token;
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(2000, token).ConfigureAwait(false);
+                    var info = await LinuxWindowInfoResolver.GetActiveWindowInfoAsync(token).ConfigureAwait(false);
+                    if (info?.AppName != null && !string.IsNullOrWhiteSpace(info.AppName))
+                    {
+                        if (!string.Equals(_lastForegroundApp, info.AppName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _lastForegroundApp = info.AppName;
+                            LauncherSearch.RecordExternalAppActivation(info.AppName);
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch
+                {
+                    // Ignore transient errors
+                }
+            }
+        }, _windowWatcherCts.Token);
+    }
+
     public void Dispose()
     {
         if (_isDisposed) return;
         _isDisposed = true;
+
+        try
+        {
+            _windowWatcherCts.Cancel();
+            _windowWatcherTask?.Wait(500);
+            _windowWatcherCts.Dispose();
+        }
+        catch
+        {
+            // Ignore
+        }
 
         SettingsStore.Changed -= OnSettingsChanged;
         LauncherSearch.Dispose();

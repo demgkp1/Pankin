@@ -189,29 +189,103 @@ public sealed class FileSource : LauncherSource
         _actionHost = actionHost;
     }
 
-    public override int Limit(SourceContext context) => context.Settings.MaxFileRows;
+    public override int Limit(SourceContext context) =>
+        context.IsFileExplicit ? Math.Max(context.Settings.MaxFileRows, 20) : context.Settings.MaxFileRows;
 
-    public override TimeSpan Timeout => TimeSpan.FromMilliseconds(200);
+    public override TimeSpan Timeout => TimeSpan.FromMilliseconds(1200);
 
     public override async Task<IReadOnlyList<LauncherItem>> SearchAsync(SourceContext context, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        if (context.Query.Length < 2 || context.Query.StartsWith('>'))
+        if (!LauncherSearch.IsValidFileQuery(context.Query, context.IsFileExplicit) || context.Query.StartsWith('>'))
             return Array.Empty<LauncherItem>();
 
         var limit = Limit(context);
-        var fetchLimit = limit * 3;
+        var fetchLimit = Math.Max(limit * 10, 100);
         var results = new List<LauncherItem>();
+
+        var query = context.Query;
+        if (query.StartsWith("f ", StringComparison.OrdinalIgnoreCase))
+        {
+            var stripped = query[2..].Trim();
+            if (!string.IsNullOrEmpty(stripped))
+            {
+                query = stripped;
+            }
+        }
+
+        var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
         try
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
             timeoutCts.CancelAfter(Timeout);
 
-            await foreach (var file in _fileSearcher.SearchFilesAsync(context.Query, fetchLimit, timeoutCts.Token).ConfigureAwait(false))
+            await foreach (var file in _fileSearcher.SearchFilesAsync(query, fetchLimit, timeoutCts.Token).ConfigureAwait(false))
             {
                 var kind = file.IsDirectory ? LauncherItemKind.Folder : LauncherItemKind.File;
                 var glyph = file.IsDirectory ? "folder" : "file";
+
+                int score = 0;
+
+                // 路径权重
+                if (!string.IsNullOrEmpty(homeDir) && file.FullPath.StartsWith(homeDir, StringComparison.Ordinal))
+                {
+                    var relPath = file.FullPath[homeDir.Length..];
+                    // 仅对明确的缓存、git 与构建产物目录降权，保留 .gemini/.claude/.cursor/.config 等工作区与配置目录
+                    bool isNoisePath = relPath.Contains("/.cache/", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.EndsWith("/.cache", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.Contains("/.local/", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.EndsWith("/.local", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.Contains("/.git/", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.EndsWith("/.git", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.Contains("/node_modules/", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.EndsWith("/node_modules", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.Contains("/obj/", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.EndsWith("/obj", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.Contains("/bin/", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.EndsWith("/bin", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.Contains("/target/", StringComparison.OrdinalIgnoreCase) ||
+                                       relPath.EndsWith("/target", StringComparison.OrdinalIgnoreCase);
+
+                    score += isNoisePath ? 20 : 100;
+                }
+                else if (file.FullPath.StartsWith("/usr", StringComparison.Ordinal) ||
+                         file.FullPath.StartsWith("/etc", StringComparison.Ordinal) ||
+                         file.FullPath.StartsWith("/var", StringComparison.Ordinal) ||
+                         file.FullPath.StartsWith("/snap", StringComparison.Ordinal) ||
+                         file.FullPath.StartsWith("/lib", StringComparison.Ordinal))
+                {
+                    score += 0;
+                }
+                else
+                {
+                    score += 10;
+                }
+
+                // 名称匹配度权重（对 file.FileName 和 query = context.Query，不区分大小写）
+                if (file.FileName.Equals(query, StringComparison.OrdinalIgnoreCase))
+                {
+                    score += 80;
+                }
+                else if (file.FileName.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+                {
+                    score += 50;
+                }
+                else if (file.FileName.Contains(query, StringComparison.OrdinalIgnoreCase))
+                {
+                    score += 30;
+                }
+                else if (ContainsChinese(file.FileName) && PinyinMatcher.Instance.Match(file.FileName, query) != null)
+                {
+                    score += 25;
+                }
+
+                // 类型与长度微调
+                if (file.IsDirectory)
+                {
+                    score += 10;
+                }
 
                 results.Add(new LauncherItem(
                     "file:" + file.FullPath,
@@ -220,7 +294,7 @@ public sealed class FileSource : LauncherSource
                     file.FileName,
                     file.DirectoryPath,
                     new LauncherIcon(glyph),
-                    Score: 50));
+                    Score: score));
 
                 if (results.Count >= fetchLimit) break;
             }
@@ -234,12 +308,10 @@ public sealed class FileSource : LauncherSource
             // 忽略检索异常
         }
 
-        var query = context.Query;
         return results
-            .OrderByDescending(i => i.Kind == LauncherItemKind.Folder)
-            .ThenByDescending(i => i.Title.Equals(query, StringComparison.OrdinalIgnoreCase))
-            .ThenByDescending(i => i.Title.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(i => i.Score)
             .ThenBy(i => i.Title.Length)
+            .ThenBy(i => i.Title)
             .Take(limit)
             .ToList();
     }
@@ -251,6 +323,15 @@ public sealed class FileSource : LauncherSource
             : item.Title;
 
         return _actionHost.OpenAsync(path, false, token);
+    }
+
+    private static bool ContainsChinese(string text)
+    {
+        foreach (char c in text)
+        {
+            if (c >= '\u4e00' && c <= '\u9fff') return true;
+        }
+        return false;
     }
 }
 

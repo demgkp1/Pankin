@@ -11,7 +11,8 @@ public sealed record SourceContext(
     IReadOnlyList<AppEntry> Apps,
     LauncherSettings Settings,
     IReadOnlyDictionary<string, AppUsage> Usage,
-    PankinSettings AllSettings)
+    PankinSettings AllSettings,
+    bool IsFileExplicit = false)
 {
     public PankinSettings FullSettings => AllSettings;
 }

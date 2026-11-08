@@ -50,12 +50,14 @@ public sealed class LinuxInputHook : IGlobalInputHook
     private double _leftMouseDownX;
     private double _leftMouseDownY;
     private string? _lastSelectedText;
+    private string? _baselinePrimaryText;
     private readonly SelectionDebounceFilter _selectionFilter = new();
 
     public bool SuperPanelEnabled { get; set; } = true;
 
     public event EventHandler<GlobalHotkeyEventArgs>? HotkeyTriggered;
     public event EventHandler<SelectionTriggeredEventArgs>? SelectionTriggered;
+    public event EventHandler<GesturePoint>? GlobalPointerPressed;
 
     public LinuxInputHook(IClipboardService? clipboardService = null)
     {
@@ -435,9 +437,16 @@ public sealed class LinuxInputHook : IGlobalInputHook
 
     private void OnMousePressed(object? sender, MouseHookEventArgs e)
     {
-        if (!SuperPanelEnabled) return;
+        GlobalPointerPressed?.Invoke(this, new GesturePoint(e.Data.X, e.Data.Y, Environment.TickCount64));
 
         var button = e.Data.Button;
+        if (button == MouseButton.Button1)
+        {
+            _ = Task.Run(async () => { try { _baselinePrimaryText = await _clipboardService.GetPrimarySelectionTextAsync().ConfigureAwait(false); } catch { } });
+        }
+
+        if (!SuperPanelEnabled) return;
+
         if (button == MouseButton.Button1)
         {
             var now = Environment.TickCount64;
@@ -494,6 +503,11 @@ public sealed class LinuxInputHook : IGlobalInputHook
             await Task.Delay(delayMs).ConfigureAwait(false);
 
             var winInfo = await LinuxWindowInfoResolver.GetActiveWindowInfoAsync().ConfigureAwait(false);
+            if (winInfo?.AppName != null && winInfo.AppName.Contains("pankin", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             var text = await _clipboardService.GetPrimarySelectionTextAsync().ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(text))
@@ -501,11 +515,18 @@ public sealed class LinuxInputHook : IGlobalInputHook
                 var trimmed = text.Trim();
                 if (_selectionFilter.IsValidLength(trimmed))
                 {
+                    if (string.Equals(trimmed, _lastSelectedText, StringComparison.Ordinal) ||
+                        (triggerType == SelectionTriggerType.MouseDrag && string.Equals(trimmed, _baselinePrimaryText?.Trim(), StringComparison.Ordinal)))
+                    {
+                        return;
+                    }
+
                     var now = Environment.TickCount64;
                     if (!_selectionFilter.IsDuplicate(trimmed, now))
                     {
                         _selectionFilter.RecordCapture(trimmed, now);
                         _lastSelectedText = trimmed;
+                        _baselinePrimaryText = trimmed;
                         SelectionTriggered?.Invoke(this, new SelectionTriggeredEventArgs(
                             trimmed,
                             mouseX,

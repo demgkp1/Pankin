@@ -1,5 +1,6 @@
 using System;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -25,14 +26,6 @@ public partial class MainWindow : Window
             SaveWindowPositionIfNeeded();
         };
 
-        TopDragArea.PointerPressed += (_, e) =>
-        {
-            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-            {
-                BeginMoveDrag(e);
-            }
-        };
-
         PointerPressed += (_, e) =>
         {
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
@@ -43,7 +36,7 @@ public partial class MainWindow : Window
                     var current = visual;
                     while (current != null && current != this)
                     {
-                        if (current is Button or TextBox or ListBoxItem or MenuItem or ToggleSwitch or Slider)
+                        if (current is Button or TextBox or ListBoxItem or MenuItem or ToggleSwitch or Slider or ScrollBar)
                         {
                             isInteractive = true;
                             break;
@@ -52,7 +45,9 @@ public partial class MainWindow : Window
                     }
                     if (!isInteractive)
                     {
+                        WindowStartupLocation = WindowStartupLocation.Manual;
                         BeginMoveDrag(e);
+                        e.Handled = true;
                     }
                 }
             }

@@ -141,9 +141,24 @@ public partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PanelOpacityPercentText))]
+    [NotifyPropertyChangedFor(nameof(PanelOpacityPercent))]
     private double _panelOpacity = 0.94;
 
     public string PanelOpacityPercentText => $"{(int)Math.Round(PanelOpacity * 100)}%";
+
+    public int PanelOpacityPercent
+    {
+        get => (int)Math.Round(PanelOpacity * 100);
+        set
+        {
+            int clamped = Math.Clamp(value, 40, 100);
+            if (PanelOpacityPercent != clamped)
+            {
+                PanelOpacity = clamped / 100.0;
+                OnPropertyChanged(nameof(PanelOpacityPercent));
+            }
+        }
+    }
 
     [ObservableProperty]
     private bool _hideOnDeactivate = true;
@@ -219,6 +234,9 @@ public partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _maxAppRows = 2;
+
+    [ObservableProperty]
+    private int _maxRecentApps = 14;
 
     [ObservableProperty]
     private int _maxFileRows = 5;
@@ -584,6 +602,7 @@ public partial class SettingsViewModel : ViewModelBase
             WebSuggestions = settings.Launcher.WebSuggestions;
             MaxAppRows = settings.Launcher.MaxAppRows;
             MaxFileRows = settings.Launcher.MaxFileRows;
+            MaxRecentApps = settings.Launcher.MaxRecentApps;
 
             // 剪贴板
             ClipboardHotkey = settings.Clipboard.Hotkey;
@@ -657,6 +676,7 @@ public partial class SettingsViewModel : ViewModelBase
     {
         SaveSetting(s => s with { General = s.General with { PanelOpacity = value } });
         App.ApplyAppearance(_context.SettingsStore.Current.General);
+        OnPropertyChanged(nameof(PanelOpacityPercent));
     }
 
     partial void OnHideOnDeactivateChanged(bool value)
@@ -833,6 +853,11 @@ public partial class SettingsViewModel : ViewModelBase
     partial void OnMaxFileRowsChanged(int value)
     {
         SaveSetting(s => s with { Launcher = s.Launcher with { MaxFileRows = value } });
+    }
+
+    partial void OnMaxRecentAppsChanged(int value)
+    {
+        SaveSetting(s => s with { Launcher = s.Launcher with { MaxRecentApps = value } });
     }
 
     partial void OnSelectionMinLengthChanged(int value)

@@ -435,6 +435,25 @@
             <Setter Property="Background" Value="{DynamicResource Pk.AccentSoft}" />
         </Style>
 
+        <!-- ============ 紧凑数值胶囊输入框 ============ -->
+        <Style Selector="NumericUpDown.pk-num">
+            <Setter Property="MinWidth" Value="64" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="CornerRadius" Value="{DynamicResource Pk.Radius.Control}" />
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceInput}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Stroke}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="ShowButtonSpinner" Value="False" />
+        </Style>
+        <Style Selector="NumericUpDown.pk-num:focus-within">
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Accent}" />
+            <Setter Property="Background" Value="{DynamicResource Pk.Surface}" />
+        </Style>
+
         <!-- ============ 菜单 ============ -->
         <Style Selector="ContextMenu">
             <Setter Property="CornerRadius" Value="10" />

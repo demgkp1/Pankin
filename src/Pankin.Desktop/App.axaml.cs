@@ -33,6 +33,9 @@ public partial class App : Application
     private SettingsViewModel? _settingsVm;
 
     private long _lastWindowActionMs;
+    private long _mainWindowShownMs;
+    private long _clipboardWindowShownMs;
+    private long _superPanelWindowShownMs;
 
     public override void Initialize()
     {
@@ -139,6 +142,9 @@ public partial class App : Application
             {
                 ApplySavedMainWindowPosition();
                 _mainWindow.Show();
+                _mainWindow.Activate();
+                _mainWindow.FocusSearchInput();
+                _mainWindowShownMs = Environment.TickCount64;
             }
         }
 
@@ -411,31 +417,84 @@ public partial class App : Application
             }
         };
 
+        hook.GlobalPointerPressed += (_, pt) =>
+        {
+            if (!DesktopAppContext.Instance.SettingsStore.Current.General.HideOnDeactivate) return;
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                long now = Environment.TickCount64;
+
+                void CheckAndHide(Window? win, long shownMs)
+                {
+                    if (win != null && win.IsVisible && (now - shownMs > 250))
+                    {
+                        var pos = win.Position;
+                        var bounds = win.Bounds;
+                        bool inside = pt.X >= pos.X && pt.X <= pos.X + bounds.Width &&
+                                      pt.Y >= pos.Y && pt.Y <= pos.Y + bounds.Height;
+                        if (!inside)
+                        {
+                            win.Hide();
+                        }
+                    }
+                }
+
+                CheckAndHide(_mainWindow, _mainWindowShownMs);
+                CheckAndHide(_clipboardWindow, _clipboardWindowShownMs);
+                CheckAndHide(_superPanelWindow, _superPanelWindowShownMs);
+            });
+        };
+
         hook.SelectionTriggered += (_, e) =>
         {
-            var settings = DesktopAppContext.Instance.SettingsStore.Current;
-            if (settings.Modules.SuperPanel && settings.SuperPanel.Enabled && settings.SuperPanel.TriggerOnSelection)
+            Dispatcher.UIThread.Post(() =>
             {
-                // 黑名单过滤（基于前台应用进程名或窗口标题）
-                if (settings.SuperPanel.BlacklistedApps.Count > 0 &&
-                    SelectionDebounceFilter.IsBlacklisted(e.SourceAppName, e.WindowTitle, settings.SuperPanel.BlacklistedApps))
+                if (_mainWindow?.IsActive == true || _clipboardWindow?.IsActive == true ||
+                    _superPanelWindow?.IsActive == true || _settingsWindow?.IsActive == true)
                 {
                     return;
                 }
 
-                var ctx = new SelectionContext(
-                    Text: e.SelectedText,
-                    Files: e.Files,
-                    SourceAppName: e.SourceAppName,
-                    WindowTitle: e.WindowTitle,
-                    PointerX: e.MouseX,
-                    PointerY: e.MouseY,
-                    Timestamp: DateTime.UtcNow,
-                    Failure: SelectionFailure.None);
+                Window?[] openWindows = [_mainWindow, _clipboardWindow, _superPanelWindow, _settingsWindow];
+                foreach (var win in openWindows)
+                {
+                    if (win != null && win.IsVisible)
+                    {
+                        if (win.Position.X <= e.MouseX && e.MouseX <= win.Position.X + win.Bounds.Width &&
+                            win.Position.Y <= e.MouseY && e.MouseY <= win.Position.Y + win.Bounds.Height)
+                        {
+                            return;
+                        }
+                    }
+                }
 
-                string mode = settings.Ai.AutoTranslateSelection ? "translate" : "action";
-                ShowSuperPanel(context: ctx, mode: mode);
-            }
+                var settings = DesktopAppContext.Instance.SettingsStore.Current;
+                if (settings.Modules.SuperPanel && settings.SuperPanel.Enabled && settings.SuperPanel.TriggerOnSelection)
+                {
+                    // 黑名单过滤（基于前台应用进程名或窗口标题）
+                    if (settings.SuperPanel.BlacklistedApps.Count > 0 &&
+                        SelectionDebounceFilter.IsBlacklisted(e.SourceAppName, e.WindowTitle, settings.SuperPanel.BlacklistedApps))
+                    {
+                        return;
+                    }
+
+                    var ctx = new SelectionContext(
+                        Text: e.SelectedText,
+                        Files: e.Files,
+                        SourceAppName: e.SourceAppName,
+                        WindowTitle: e.WindowTitle,
+                        PointerX: e.MouseX,
+                        PointerY: e.MouseY,
+                        Timestamp: DateTime.UtcNow,
+                        Failure: SelectionFailure.None);
+
+                    string mode = (!settings.Modules.Ai || !settings.Ai.Enabled || !settings.Ai.AutoTranslateSelection)
+                        ? "action"
+                        : "translate";
+                    ShowSuperPanel(context: ctx, mode: mode);
+                }
+            });
         };
     }
 
@@ -477,6 +536,7 @@ public partial class App : Application
                 _mainWindow.Topmost = true;
                 _mainWindow.Activate();
                 _mainWindow.FocusSearchInput();
+                _mainWindowShownMs = Environment.TickCount64;
             }
         });
     }
@@ -505,6 +565,7 @@ public partial class App : Application
                 _clipboardWindow.Topmost = true;
                 _clipboardWindow.Activate();
                 _clipboardWindow.FocusSearchInput();
+                _clipboardWindowShownMs = Environment.TickCount64;
             }
         });
     }
@@ -556,6 +617,7 @@ public partial class App : Application
                 _superPanelWindow.Topmost = false;
                 _superPanelWindow.Topmost = true;
                 _superPanelWindow.Activate();
+                _superPanelWindowShownMs = Environment.TickCount64;
             });
         });
     }

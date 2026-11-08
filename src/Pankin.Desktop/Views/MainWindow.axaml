@@ -97,11 +97,12 @@
                                   VerticalScrollBarVisibility="Auto"
                                   Padding="16,14,16,10">
                         <StackPanel Spacing="18">
+                            <!-- 区块 1：固定应用 / 快捷工具 -->
                             <StackPanel Spacing="6">
                                 <TextBlock Classes="section"
-                                           Text="{loc:Loc Launcher_RecentApps}"
+                                           Text="{loc:Loc Launcher_PinnedApps}"
                                            Margin="8,0,0,0" />
-                                <ItemsControl ItemsSource="{Binding RecentApps}">
+                                <ItemsControl ItemsSource="{Binding PinnedTools}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <WrapPanel Orientation="Horizontal" />
@@ -114,6 +115,14 @@
                                                     Width="94" Height="94"
                                                     Margin="0,2"
                                                     ToolTip.Tip="{Binding Subtitle}">
+                                                <Button.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="打开" Command="{Binding ExecuteCommand}" />
+                                                        <MenuItem Header="{Binding PinMenuHeader}" Command="{Binding TogglePinCommand}" />
+                                                        <MenuItem Header="打开文件所在位置" Command="{Binding OpenLocationCommand}" IsVisible="{Binding CanOpenLocation}" />
+                                                        <MenuItem Header="以管理员身份运行" Command="{Binding RunAsAdminCommand}" IsVisible="{Binding CanRunAsAdmin}" />
+                                                    </ContextMenu>
+                                                </Button.ContextMenu>
                                                 <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                     <Panel Width="44" Height="44" HorizontalAlignment="Center">
                                                         <!-- 真实应用图标：无底座，直接呈现 -->
@@ -121,11 +130,28 @@
                                                                IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}"
                                                                Width="42" Height="42"
                                                                RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                                        <!-- 内置工具图标：柔和色调底座 + 品牌色线性图标 -->
+                                                        <Border Width="44" Height="44"
+                                                                CornerRadius="12"
+                                                                Background="{DynamicResource Pk.SurfaceRaised}"
+                                                                BorderBrush="{DynamicResource Pk.Stroke}"
+                                                                BorderThickness="1"
+                                                                IsVisible="{Binding ShowIconPath}">
+                                                            <Path Data="{Binding IconGeometry}"
+                                                                  Width="20" Height="20"
+                                                                  Stretch="Uniform"
+                                                                  Stroke="{DynamicResource Pk.Accent}"
+                                                                  StrokeThickness="1.75"
+                                                                  StrokeJoin="Round"
+                                                                  StrokeLineCap="Round"
+                                                                  HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center" />
+                                                        </Border>
                                                         <!-- 无图标：彩色字母底座 -->
                                                         <Border Classes="icon-badge"
                                                                 CornerRadius="12"
                                                                 Background="{Binding BadgeColor}"
-                                                                IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNull}}">
+                                                                IsVisible="{Binding ShowGlyph}">
                                                             <TextBlock Text="{Binding Glyph}"
                                                                        FontSize="19"
                                                                        FontWeight="SemiBold"
@@ -148,11 +174,12 @@
                                 </ItemsControl>
                             </StackPanel>
 
+                            <!-- 区块 2：最近使用应用 -->
                             <StackPanel Spacing="6">
                                 <TextBlock Classes="section"
-                                           Text="{loc:Loc Launcher_PinnedApps}"
+                                           Text="{loc:Loc Launcher_RecentApps}"
                                            Margin="8,0,0,0" />
-                                <ItemsControl ItemsSource="{Binding PinnedTools}">
+                                <ItemsControl ItemsSource="{Binding RecentApps}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <WrapPanel Orientation="Horizontal" />
@@ -165,17 +192,29 @@
                                                     Width="94" Height="94"
                                                     Margin="0,2"
                                                     ToolTip.Tip="{Binding Subtitle}">
+                                                <Button.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="打开" Command="{Binding ExecuteCommand}" />
+                                                        <MenuItem Header="{Binding PinMenuHeader}" Command="{Binding TogglePinCommand}" />
+                                                        <MenuItem Header="打开文件所在位置" Command="{Binding OpenLocationCommand}" IsVisible="{Binding CanOpenLocation}" />
+                                                        <MenuItem Header="以管理员身份运行" Command="{Binding RunAsAdminCommand}" IsVisible="{Binding CanRunAsAdmin}" />
+                                                    </ContextMenu>
+                                                </Button.ContextMenu>
                                                 <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <!-- 工具图标：柔和色调底座 + 品牌色线性图标 -->
-                                                    <Border Width="44" Height="44"
-                                                            CornerRadius="12"
-                                                            Background="{DynamicResource Pk.SurfaceRaised}"
-                                                            BorderBrush="{DynamicResource Pk.Stroke}"
-                                                            BorderThickness="1"
-                                                            HorizontalAlignment="Center">
-                                                        <Panel>
+                                                    <Panel Width="44" Height="44" HorizontalAlignment="Center">
+                                                        <!-- 真实应用图标：无底座，直接呈现 -->
+                                                        <Image Source="{Binding IconBitmap}"
+                                                               IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                               Width="42" Height="42"
+                                                               RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                                        <!-- 内置工具图标：柔和色调底座 + 品牌色线性图标 -->
+                                                        <Border Width="44" Height="44"
+                                                                CornerRadius="12"
+                                                                Background="{DynamicResource Pk.SurfaceRaised}"
+                                                                BorderBrush="{DynamicResource Pk.Stroke}"
+                                                                BorderThickness="1"
+                                                                IsVisible="{Binding ShowIconPath}">
                                                             <Path Data="{Binding IconGeometry}"
-                                                                  IsVisible="{Binding HasIconPath}"
                                                                   Width="20" Height="20"
                                                                   Stretch="Uniform"
                                                                   Stroke="{DynamicResource Pk.Accent}"
@@ -184,14 +223,20 @@
                                                                   StrokeLineCap="Round"
                                                                   HorizontalAlignment="Center"
                                                                   VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <!-- 无图标：彩色字母底座 -->
+                                                        <Border Classes="icon-badge"
+                                                                CornerRadius="12"
+                                                                Background="{Binding BadgeColor}"
+                                                                IsVisible="{Binding ShowGlyph}">
                                                             <TextBlock Text="{Binding Glyph}"
-                                                                       IsVisible="{Binding !HasIconPath}"
                                                                        FontSize="19"
-                                                                       Foreground="{DynamicResource Pk.Accent}"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="#FFFFFF"
                                                                        HorizontalAlignment="Center"
                                                                        VerticalAlignment="Center" />
-                                                        </Panel>
-                                                    </Border>
+                                                        </Border>
+                                                    </Panel>
                                                     <TextBlock Text="{Binding Name}"
                                                                FontSize="11.5"
                                                                Foreground="{DynamicResource Pk.TextSecondary}"
@@ -277,6 +322,9 @@
                                                 <ContextMenu>
                                                     <MenuItem Header="打开 / 执行"
                                                               Command="{Binding ExecuteCommand}" />
+                                                    <MenuItem Header="{Binding PinMenuHeader}"
+                                                              Command="{Binding TogglePinCommand}"
+                                                              IsVisible="{Binding CanPin}" />
                                                     <MenuItem Header="打开所在目录 (Ctrl+Enter)"
                                                               Command="{Binding OpenLocationCommand}"
                                                               IsVisible="{Binding CanOpenLocation}" />

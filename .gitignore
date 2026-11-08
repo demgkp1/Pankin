@@ -22,3 +22,11 @@ _reference/
 
 # Temp / Local settings
 *.local.json
+
+# Packaging and artifacts
+artifacts/
+publish/
+.tools/
+*.deb
+*.AppImage
+

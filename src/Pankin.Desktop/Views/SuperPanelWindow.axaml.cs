@@ -21,7 +21,9 @@ public partial class SuperPanelWindow : Window
         {
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
+                WindowStartupLocation = WindowStartupLocation.Manual;
                 BeginMoveDrag(e);
+                e.Handled = true;
             }
         };
 

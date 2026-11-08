@@ -18,6 +18,7 @@ namespace Pankin.Desktop.ViewModels;
 
 public sealed class AppTileItem : ObservableObject
 {
+    public string Id { get; }
     public string Name { get; }
     public string? Subtitle { get; }
     public string BadgeColor { get; }
@@ -26,10 +27,36 @@ public sealed class AppTileItem : ObservableObject
     public string? IconPathData { get; }
     public StreamGeometry? IconGeometry => IconPathData != null ? LucideIcons.GetGeometry(IconPathData) : null;
     public bool HasIconPath => IconPathData != null;
-    public IRelayCommand LaunchCommand { get; }
+    public bool ShowIconPath => IconBitmap == null && HasIconPath;
+    public bool ShowGlyph => IconBitmap == null && !HasIconPath;
+    public bool IsPinned { get; }
+    public string PinMenuHeader => IsPinned ? "取消固定" : "固定到启动面板";
+    public bool CanOpenLocation { get; }
+    public bool CanRunAsAdmin { get; }
 
-    public AppTileItem(string name, string? subtitle, string badgeColor, string glyph, Bitmap? iconBitmap, Action onLaunch, string? iconPathData = null)
+    public IRelayCommand LaunchCommand { get; }
+    public IRelayCommand ExecuteCommand => LaunchCommand;
+    public IRelayCommand? TogglePinCommand { get; }
+    public IRelayCommand? OpenLocationCommand { get; }
+    public IRelayCommand? RunAsAdminCommand { get; }
+
+    public AppTileItem(
+        string id,
+        string name,
+        string? subtitle,
+        string badgeColor,
+        string glyph,
+        Bitmap? iconBitmap,
+        Action onLaunch,
+        string? iconPathData = null,
+        bool isPinned = false,
+        bool canOpenLocation = false,
+        bool canRunAsAdmin = false,
+        Action? onTogglePin = null,
+        Action? onOpenLocation = null,
+        Action? onRunAsAdmin = null)
     {
+        Id = id;
         Name = name;
         Subtitle = subtitle;
         BadgeColor = badgeColor;
@@ -37,6 +64,22 @@ public sealed class AppTileItem : ObservableObject
         IconBitmap = iconBitmap;
         LaunchCommand = new RelayCommand(onLaunch);
         IconPathData = iconPathData;
+        IsPinned = isPinned;
+        CanOpenLocation = canOpenLocation;
+        CanRunAsAdmin = canRunAsAdmin;
+
+        if (onTogglePin != null)
+        {
+            TogglePinCommand = new RelayCommand(onTogglePin);
+        }
+        if (onOpenLocation != null)
+        {
+            OpenLocationCommand = new RelayCommand(onOpenLocation);
+        }
+        if (onRunAsAdmin != null)
+        {
+            RunAsAdminCommand = new RelayCommand(onRunAsAdmin);
+        }
     }
 }
 
@@ -60,6 +103,8 @@ public sealed class LauncherListItem : ObservableObject
     private readonly ILauncherSearch _search;
     private readonly ILauncherActionHost _actionHost;
     private readonly Action? _onHide;
+    private readonly Action<string>? _onTogglePin;
+    private readonly Func<string, bool>? _isPinned;
 
     public LauncherItem CoreItem { get; }
     public string Title => CoreItem.Title;
@@ -87,11 +132,17 @@ public sealed class LauncherListItem : ObservableObject
     public bool CanOpenInTerminal => Kind is LauncherItemKind.App or LauncherItemKind.File or LauncherItemKind.Folder or LauncherItemKind.Command;
     public bool CanRunAsAdmin => Kind is LauncherItemKind.App or LauncherItemKind.Command;
 
+    public bool CanPin => Kind == LauncherItemKind.App && ((object)CoreItem is AppEntry || CoreItem.Tag is AppEntry || !string.IsNullOrEmpty(CoreItem.Id));
+    public string AppId => (CoreItem.Tag as AppEntry)?.Id ?? CoreItem.Id;
+    public bool IsPinned => _isPinned?.Invoke(AppId) ?? false;
+    public string PinMenuHeader => IsPinned ? "取消固定" : "固定到启动面板";
+
     public IAsyncRelayCommand ExecuteCommand { get; }
     public IAsyncRelayCommand OpenLocationCommand { get; }
     public IAsyncRelayCommand CopyPathCommand { get; }
     public IAsyncRelayCommand OpenInTerminalCommand { get; }
     public IAsyncRelayCommand RunAsAdminCommand { get; }
+    public IRelayCommand? TogglePinCommand { get; }
 
     public LauncherListItem(
         LauncherItem coreItem,
@@ -102,7 +153,9 @@ public sealed class LauncherListItem : ObservableObject
         bool isFirstInGroup,
         ILauncherSearch search,
         ILauncherActionHost actionHost,
-        Action? onHide)
+        Action? onHide,
+        Action<string>? onTogglePin = null,
+        Func<string, bool>? isPinned = null)
     {
         CoreItem = coreItem;
         Tag = tag;
@@ -113,8 +166,20 @@ public sealed class LauncherListItem : ObservableObject
         _search = search;
         _actionHost = actionHost;
         _onHide = onHide;
+        _onTogglePin = onTogglePin;
+        _isPinned = isPinned;
 
         (IconBitmap, IconPathData, Glyph, BadgeColor) = ResolveIcon(coreItem);
+
+        if (onTogglePin != null)
+        {
+            TogglePinCommand = new RelayCommand(() =>
+            {
+                _onTogglePin?.Invoke(AppId);
+                OnPropertyChanged(nameof(IsPinned));
+                OnPropertyChanged(nameof(PinMenuHeader));
+            });
+        }
 
         ExecuteCommand = new AsyncRelayCommand(async () =>
         {
@@ -310,6 +375,28 @@ public partial class MainViewModel : ViewModelBase
     public MainViewModel(DesktopAppContext context)
     {
         _context = context;
+
+        var launcherSettings = _context.SettingsStore.Current.Launcher;
+        if (!launcherSettings.DefaultToolsInitialized && (launcherSettings.PinnedAppIds == null || launcherSettings.PinnedAppIds.Count == 0))
+        {
+            _context.SettingsStore.Update(s => s with
+            {
+                Launcher = s.Launcher with
+                {
+                    DefaultToolsInitialized = true,
+                    PinnedAppIds =
+                    [
+                        "builtin:clipboard",
+                        "builtin:superpanel",
+                        "builtin:filesearch",
+                        "builtin:rename",
+                        "builtin:powertimer",
+                        "builtin:settings"
+                    ]
+                }
+            });
+        }
+
         InitPinnedTools();
         LoadDefaultApps();
         BuildQuickActions();
@@ -319,69 +406,233 @@ public partial class MainViewModel : ViewModelBase
             InitPinnedTools();
             LoadDefaultApps();
         });
-        _context.SettingsStore.Changed += (_, _) => OnPropertyChanged(nameof(HotkeyDisplay));
+        _context.SettingsStore.Changed += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            OnPropertyChanged(nameof(HotkeyDisplay));
+            InitPinnedTools();
+            LoadDefaultApps();
+        });
     }
 
     public string HotkeyDisplay => _context.SettingsStore.Current.Launcher.Hotkey;
+
+    public bool IsAppPinned(string id)
+    {
+        var pinned = _context.SettingsStore.Current.Launcher.PinnedAppIds;
+        return pinned != null && pinned.Contains(id, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public void TogglePin(string id)
+    {
+        var current = _context.SettingsStore.Current.Launcher.PinnedAppIds ?? [];
+        List<string> updated;
+        if (current.Contains(id, StringComparer.OrdinalIgnoreCase))
+        {
+            updated = current.Where(x => !string.Equals(x, id, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+        else
+        {
+            updated = [.. current, id];
+        }
+
+        _context.SettingsStore.Update(s => s with
+        {
+            Launcher = s.Launcher with
+            {
+                PinnedAppIds = updated,
+                DefaultToolsInitialized = true
+            }
+        });
+
+        InitPinnedTools();
+        LoadDefaultApps();
+    }
+
+    private AppTileItem? CreateBuiltinTile(string id)
+    {
+        return id.ToLowerInvariant() switch
+        {
+            "builtin:clipboard" => new AppTileItem(
+                id: "builtin:clipboard",
+                name: "剪贴板",
+                subtitle: "Alt+V 历史记录",
+                badgeColor: "#059669",
+                glyph: "C",
+                iconBitmap: null,
+                iconPathData: LucideIcons.Clipboard,
+                isPinned: true,
+                canOpenLocation: false,
+                canRunAsAdmin: false,
+                onLaunch: () =>
+                {
+                    RequestHideWindow?.Invoke();
+                    RequestOpenClipboard?.Invoke();
+                },
+                onTogglePin: () => TogglePin("builtin:clipboard")),
+
+            "builtin:superpanel" => new AppTileItem(
+                id: "builtin:superpanel",
+                name: "超级面板",
+                subtitle: "Alt+S 划词翻译与AI",
+                badgeColor: "#7C3AED",
+                glyph: "W",
+                iconBitmap: null,
+                iconPathData: LucideIcons.Wand,
+                isPinned: true,
+                canOpenLocation: false,
+                canRunAsAdmin: false,
+                onLaunch: () =>
+                {
+                    RequestHideWindow?.Invoke();
+                    RequestOpenSuperPanel?.Invoke(string.Empty, "translate");
+                },
+                onTogglePin: () => TogglePin("builtin:superpanel")),
+
+            "builtin:filesearch" => new AppTileItem(
+                id: "builtin:filesearch",
+                name: "文件搜索",
+                subtitle: "plocate 极速检索",
+                badgeColor: "#2563EB",
+                glyph: "F",
+                iconBitmap: null,
+                iconPathData: LucideIcons.Folder,
+                isPinned: true,
+                canOpenLocation: false,
+                canRunAsAdmin: false,
+                onLaunch: () =>
+                {
+                    SearchQuery = "f ";
+                },
+                onTogglePin: () => TogglePin("builtin:filesearch")),
+
+            "builtin:rename" => new AppTileItem(
+                id: "builtin:rename",
+                name: "批量重命名",
+                subtitle: "规则替换与编号",
+                badgeColor: "#D97706",
+                glyph: "R",
+                iconBitmap: null,
+                iconPathData: LucideIcons.Pencil,
+                isPinned: true,
+                canOpenLocation: false,
+                canRunAsAdmin: false,
+                onLaunch: () =>
+                {
+                    RequestHideWindow?.Invoke();
+                    RequestOpenSettings?.Invoke(7);
+                },
+                onTogglePin: () => TogglePin("builtin:rename")),
+
+            "builtin:powertimer" => new AppTileItem(
+                id: "builtin:powertimer",
+                name: "定时关机",
+                subtitle: "到点关机/重启/睡眠",
+                badgeColor: "#DC2626",
+                glyph: "T",
+                iconBitmap: null,
+                iconPathData: LucideIcons.Timer,
+                isPinned: true,
+                canOpenLocation: false,
+                canRunAsAdmin: false,
+                onLaunch: () =>
+                {
+                    RequestHideWindow?.Invoke();
+                    RequestOpenSettings?.Invoke(8);
+                },
+                onTogglePin: () => TogglePin("builtin:powertimer")),
+
+            "builtin:settings" => new AppTileItem(
+                id: "builtin:settings",
+                name: "系统设置",
+                subtitle: "Alt+, 偏好配置",
+                badgeColor: "#4F46E5",
+                glyph: "S",
+                iconBitmap: null,
+                iconPathData: LucideIcons.Gear,
+                isPinned: true,
+                canOpenLocation: false,
+                canRunAsAdmin: false,
+                onLaunch: () =>
+                {
+                    RequestHideWindow?.Invoke();
+                    RequestOpenSettings?.Invoke(0);
+                },
+                onTogglePin: () => TogglePin("builtin:settings")),
+
+            _ => null
+        };
+    }
+
+    private AppTileItem CreateAppTile(AppEntry app, bool isPinned)
+    {
+        var icon = LinuxIconHelper.TryLoadIcon(app.Icon);
+        var color = LinuxIconHelper.GetGradientColor(app.DisplayName);
+        var glyph = LinuxIconHelper.GetGlyphChar(app.DisplayName);
+
+        return new AppTileItem(
+            id: app.Id,
+            name: app.DisplayName,
+            subtitle: app.Exec,
+            badgeColor: color,
+            glyph: glyph,
+            iconBitmap: icon,
+            iconPathData: null,
+            isPinned: isPinned,
+            canOpenLocation: true,
+            canRunAsAdmin: true,
+            onLaunch: () =>
+            {
+                RequestHideWindow?.Invoke();
+                _ = _context.AppScanner.LaunchAppAsync(app);
+                _context.LauncherSearch.RecordUsage(app.Id);
+            },
+            onTogglePin: () => TogglePin(app.Id),
+            onOpenLocation: () =>
+            {
+                RequestHideWindow?.Invoke();
+                if (!string.IsNullOrEmpty(app.DesktopFilePath))
+                {
+                    _ = _context.ActionHost.RevealAsync(app.DesktopFilePath);
+                }
+            },
+            onRunAsAdmin: () =>
+            {
+                RequestHideWindow?.Invoke();
+                if (!string.IsNullOrEmpty(app.Exec))
+                {
+                    _ = _context.ActionHost.OpenAsync(app.Exec, elevated: true);
+                }
+            });
+    }
 
     private void InitPinnedTools()
     {
         PinnedTools.Clear();
 
-        PinnedTools.Add(new AppTileItem("剪贴板", "Alt+V 历史记录", "#059669", "C", null, () =>
-        {
-            RequestHideWindow?.Invoke();
-            RequestOpenClipboard?.Invoke();
-        }, LucideIcons.Clipboard));
-
-        PinnedTools.Add(new AppTileItem("超级面板", "Alt+S 划词翻译与AI", "#7C3AED", "W", null, () =>
-        {
-            RequestHideWindow?.Invoke();
-            RequestOpenSuperPanel?.Invoke(string.Empty, "translate");
-        }, LucideIcons.Wand));
-
-        PinnedTools.Add(new AppTileItem("文件搜索", "plocate 极速检索", "#2563EB", "F", null, () =>
-        {
-            SearchQuery = "f ";
-        }, LucideIcons.Folder));
-
-        PinnedTools.Add(new AppTileItem("批量重命名", "规则替换与编号", "#D97706", "R", null, () =>
-        {
-            RequestHideWindow?.Invoke();
-            RequestOpenSettings?.Invoke(7);
-        }, LucideIcons.Pencil));
-
-        PinnedTools.Add(new AppTileItem("定时关机", "到点关机/重启/睡眠", "#DC2626", "T", null, () =>
-        {
-            RequestHideWindow?.Invoke();
-            RequestOpenSettings?.Invoke(8);
-        }, LucideIcons.Timer));
-
-        PinnedTools.Add(new AppTileItem("系统设置", "Alt+, 偏好配置", "#4F46E5", "S", null, () =>
-        {
-            RequestHideWindow?.Invoke();
-            RequestOpenSettings?.Invoke(0);
-        }, LucideIcons.Gear));
-
         var pinnedIds = _context.SettingsStore.Current.Launcher.PinnedAppIds;
-        if (pinnedIds != null && pinnedIds.Count > 0)
+        if (pinnedIds == null || pinnedIds.Count == 0)
         {
-            var cached = _context.LauncherSearch.CachedApps;
-            foreach (var id in pinnedIds)
+            return;
+        }
+
+        var cached = _context.LauncherSearch.CachedApps;
+
+        foreach (var id in pinnedIds)
+        {
+            if (id.StartsWith("builtin:", StringComparison.OrdinalIgnoreCase))
+            {
+                var tile = CreateBuiltinTile(id);
+                if (tile != null)
+                {
+                    PinnedTools.Add(tile);
+                }
+            }
+            else
             {
                 var app = cached.FirstOrDefault(a => string.Equals(a.Id, id, StringComparison.OrdinalIgnoreCase));
                 if (app != null)
                 {
-                    var icon = LinuxIconHelper.TryLoadIcon(app.Icon);
-                    var color = LinuxIconHelper.GetGradientColor(app.DisplayName);
-                    var glyph = LinuxIconHelper.GetGlyphChar(app.DisplayName);
-
-                    PinnedTools.Add(new AppTileItem(app.DisplayName, app.Exec, color, glyph, icon, () =>
-                    {
-                        RequestHideWindow?.Invoke();
-                        _ = _context.AppScanner.LaunchAppAsync(app);
-                        _context.LauncherSearch.RecordUsage(app.Id);
-                    }));
+                    PinnedTools.Add(CreateAppTile(app, isPinned: true));
                 }
             }
         }
@@ -390,20 +641,14 @@ public partial class MainViewModel : ViewModelBase
     public void LoadDefaultApps()
     {
         RecentApps.Clear();
-        var apps = _context.LauncherSearch.GetRecentApps(14);
+        int maxCount = Math.Clamp(_context.SettingsStore.Current.Launcher.MaxRecentApps, 1, 28);
+        var apps = _context.LauncherSearch.GetRecentApps(maxCount);
+        var pinnedIds = _context.SettingsStore.Current.Launcher.PinnedAppIds ?? [];
 
         foreach (var app in apps)
         {
-            var icon = LinuxIconHelper.TryLoadIcon(app.Icon);
-            var color = LinuxIconHelper.GetGradientColor(app.DisplayName);
-            var glyph = LinuxIconHelper.GetGlyphChar(app.DisplayName);
-
-            RecentApps.Add(new AppTileItem(app.DisplayName, app.Exec, color, glyph, icon, () =>
-            {
-                RequestHideWindow?.Invoke();
-                _ = _context.AppScanner.LaunchAppAsync(app);
-                _context.LauncherSearch.RecordUsage(app.Id);
-            }));
+            bool isPinned = pinnedIds.Contains(app.Id, StringComparer.OrdinalIgnoreCase);
+            RecentApps.Add(CreateAppTile(app, isPinned));
         }
     }
 
@@ -499,7 +744,7 @@ public partial class MainViewModel : ViewModelBase
                         if (ct.IsCancellationRequested || _searchVersion != currentVersion) return;
                         ApplySearchResults(partial, isFileExplicit);
                     });
-                }, ct).ConfigureAwait(false);
+                }, isFileExplicit: isFileExplicit, cancellationToken: ct).ConfigureAwait(false);
 
                 if (!ct.IsCancellationRequested && _searchVersion == currentVersion)
                 {
@@ -563,7 +808,9 @@ public partial class MainViewModel : ViewModelBase
                 isFirst,
                 _context.LauncherSearch,
                 _context.ActionHost,
-                () => RequestHideWindow?.Invoke());
+                () => RequestHideWindow?.Invoke(),
+                onTogglePin: TogglePin,
+                isPinned: IsAppPinned);
 
             SearchResults.Add(listItem);
 

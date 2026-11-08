@@ -19,12 +19,21 @@ public class LauncherSearchTests
             Task.FromResult(true);
     }
 
-    private sealed class FakeFileSearcher : IFileSearcher
+    private sealed class FakeFileSearcher(IReadOnlyList<FileSearchResult>? results = null) : IFileSearcher
     {
+        private readonly IReadOnlyList<FileSearchResult> _results = results ??
+        [
+            new("/home/user/Documents/report.pdf", "report.pdf", "/home/user/Documents")
+        ];
+
         public async IAsyncEnumerable<FileSearchResult> SearchFilesAsync(string query, int limit = 50, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
         {
             await Task.Yield();
-            yield return new FileSearchResult("/home/user/Documents/report.pdf", "report.pdf", "/home/user/Documents");
+            foreach (var item in _results)
+            {
+                ct.ThrowIfCancellationRequested();
+                yield return item;
+            }
         }
     }
 
@@ -38,7 +47,10 @@ public class LauncherSearchTests
         public Task<bool> ShowPropertiesAsync(string path, CancellationToken ct = default) => Task.FromResult(true);
     }
 
-    private static LauncherSearch CreateLauncherSearch(string tempConfigPath, IReadOnlyList<AppEntry>? apps = null)
+    private static LauncherSearch CreateLauncherSearch(
+        string tempConfigPath,
+        IReadOnlyList<AppEntry>? apps = null,
+        IReadOnlyList<FileSearchResult>? files = null)
     {
         var sampleApps = apps ??
         [
@@ -48,7 +60,7 @@ public class LauncherSearchTests
         ];
 
         var appScanner = new FakeAppScanner(sampleApps);
-        var fileSearcher = new FakeFileSearcher();
+        var fileSearcher = new FakeFileSearcher(files);
         var actionHost = new FakeLauncherActionHost();
         var settingsStore = new SettingsStore(tempConfigPath);
 
@@ -208,6 +220,185 @@ public class LauncherSearchTests
             var recents = search.GetRecentApps(5);
             Assert.NotEmpty(recents);
             Assert.Equal("code", recents[0].Id);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void RecordExternalAppActivation_ShouldMatchAndTriggerUsage()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            using var search = CreateLauncherSearch(tempFile);
+            int usageCount = 0;
+            search.UsageChanged += (_, _) => usageCount++;
+
+            // Pankin itself should be ignored
+            search.RecordExternalAppActivation("Pankin");
+            Assert.Equal(0, usageCount);
+
+            // Empty or whitespace ignored
+            search.RecordExternalAppActivation("   ");
+            Assert.Equal(0, usageCount);
+
+            // Valid app activation matching Exec / App Name
+            search.RecordExternalAppActivation("gnome-calculator");
+            Assert.Equal(1, usageCount);
+            var recents = search.GetRecentApps(5);
+            Assert.Equal("org.gnome.Calculator", recents[0].Id);
+
+            // Repeated activation for the same app should not record again
+            search.RecordExternalAppActivation("Calculator");
+            Assert.Equal(1, usageCount);
+
+            // Different app activation
+            search.RecordExternalAppActivation("Google Chrome");
+            Assert.Equal(2, usageCount);
+            recents = search.GetRecentApps(5);
+            Assert.Equal("google-chrome", recents[0].Id);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("", false, false)]
+    [InlineData("   ", false, false)]
+    [InlineData("a", false, false)]
+    [InlineData("a", true, true)]
+    [InlineData("f ", false, false)]
+    [InlineData("f a", false, true)]
+    [InlineData("ab", false, true)]
+    [InlineData("表", false, true)]
+    [InlineData("表", true, true)]
+    public void IsValidFileQuery_ShouldValidateCorrectly(string query, bool isExplicit, bool expected)
+    {
+        var actual = LauncherSearch.IsValidFileQuery(query, isExplicit);
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public async Task SearchAsync_SingleChineseCharacter_ShouldTriggerFileSearch()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var file = new FileSearchResult(Path.Combine(homeDir, "Documents", "报表.xlsx"), "报表.xlsx", Path.Combine(homeDir, "Documents"));
+            using var search = CreateLauncherSearch(tempFile, files: [file]);
+
+            var result = await search.SearchAsync("表", CancellationToken.None);
+
+            var fileItem = result.Items.FirstOrDefault(i => i.Kind == LauncherItemKind.File);
+            Assert.NotNull(fileItem);
+            Assert.Equal("报表.xlsx", fileItem.Title);
+            Assert.True(fileItem.Score > 0);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public async Task SearchAsync_IsFileExplicit_ShouldTriggerSearchForSingleAsciiChar()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var file = new FileSearchResult(Path.Combine(homeDir, "Documents", "app.log"), "app.log", Path.Combine(homeDir, "Documents"));
+            using var search = CreateLauncherSearch(tempFile, files: [file]);
+
+            // When isFileExplicit is false, single character "a" should not trigger file search
+            var implicitResult = await search.SearchAsync("a", isFileExplicit: false, CancellationToken.None);
+            Assert.DoesNotContain(implicitResult.Items, i => i.Kind == LauncherItemKind.File);
+
+            // When isFileExplicit is true, single character "a" should trigger file search
+            var explicitResult = await search.SearchAsync("a", isFileExplicit: true, CancellationToken.None);
+            var fileItem = explicitResult.Items.FirstOrDefault(i => i.Kind == LauncherItemKind.File);
+            Assert.NotNull(fileItem);
+            Assert.Equal("app.log", fileItem.Title);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public async Task SearchAsync_HomeDirPrioritizedOverUsrDir()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var userFile = new FileSearchResult(Path.Combine(homeDir, "Documents", "report.txt"), "report.txt", Path.Combine(homeDir, "Documents"));
+            var usrFile = new FileSearchResult("/usr/share/doc/report.txt", "report.txt", "/usr/share/doc");
+
+            // Intentionally provide usrFile before userFile
+            using var search = CreateLauncherSearch(tempFile, files: [usrFile, userFile]);
+
+            var result = await search.SearchAsync("report", CancellationToken.None);
+            var fileItems = result.Items.Where(i => i.Kind == LauncherItemKind.File).ToList();
+
+            Assert.True(fileItems.Count >= 2);
+            // userFile has homeDir bonus (+100) vs usrFile (+0), both have exact name match (+80)
+            Assert.Equal("file:" + userFile.FullPath, fileItems[0].Id);
+            Assert.Equal("file:" + usrFile.FullPath, fileItems[1].Id);
+            Assert.True(fileItems[0].Score > fileItems[1].Score);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public async Task SearchAsync_WorkspaceHiddenDirs_NotPenalizedAsNoise()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var workspaceFile = new FileSearchResult(
+                Path.Combine(homeDir, ".gemini", "antigravity", "settings.json"),
+                "settings.json",
+                Path.Combine(homeDir, ".gemini", "antigravity"));
+            var noiseFile = new FileSearchResult(
+                Path.Combine(homeDir, ".cache", "thumbnails", "settings.json"),
+                "settings.json",
+                Path.Combine(homeDir, ".cache", "thumbnails"));
+
+            // Intentionally provide noiseFile before workspaceFile
+            using var search = CreateLauncherSearch(tempFile, files: [noiseFile, workspaceFile]);
+
+            var result = await search.SearchAsync("settings.json", CancellationToken.None);
+            var fileItems = result.Items.Where(i => i.Kind == LauncherItemKind.File).ToList();
+
+            Assert.True(fileItems.Count >= 2);
+            var workspaceItem = fileItems.FirstOrDefault(i => i.Id == "file:" + workspaceFile.FullPath);
+            var noiseItem = fileItems.FirstOrDefault(i => i.Id == "file:" + noiseFile.FullPath);
+            Assert.NotNull(workspaceItem);
+            Assert.NotNull(noiseItem);
+
+            // Workspace hidden dir gets 100 path bonus + 80 exact name match = 180
+            // Noise path gets 20 path bonus + 80 exact name match = 100
+            Assert.Equal(180, workspaceItem.Score);
+            Assert.Equal(100, noiseItem.Score);
+            Assert.Equal("file:" + workspaceFile.FullPath, fileItems[0].Id);
+            Assert.True(workspaceItem.Score > noiseItem.Score);
         }
         finally
         {

@@ -97,6 +97,7 @@ public interface IGlobalInputHook : IDisposable
 {
     event EventHandler<GlobalHotkeyEventArgs>? HotkeyTriggered;
     event EventHandler<SelectionTriggeredEventArgs>? SelectionTriggered;
+    event EventHandler<GesturePoint>? GlobalPointerPressed;
 
     bool SuperPanelEnabled { get; set; }
     void UpdateHotkeys(string launcherHotkey, string clipboardHotkey, string superPanelHotkey);

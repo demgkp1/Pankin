@@ -19,7 +19,9 @@ public partial class ClipboardWindow : Window
         {
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
+                WindowStartupLocation = WindowStartupLocation.Manual;
                 BeginMoveDrag(e);
+                e.Handled = true;
             }
         };
 

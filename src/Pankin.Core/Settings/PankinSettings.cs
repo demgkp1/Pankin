@@ -44,7 +44,17 @@ public sealed record LauncherSettings
     public string DefaultSearchEngine { get; init; } = "bing";
     public bool RememberCommands { get; init; } = true;
     public bool WebSuggestions { get; init; } = true;
-    public IReadOnlyList<string> PinnedAppIds { get; init; } = [];
+    public int MaxRecentApps { get; init; } = 14;
+    public bool DefaultToolsInitialized { get; init; } = true;
+    public IReadOnlyList<string> PinnedAppIds { get; init; } =
+    [
+        "builtin:clipboard",
+        "builtin:superpanel",
+        "builtin:filesearch",
+        "builtin:rename",
+        "builtin:powertimer",
+        "builtin:settings"
+    ];
     public IReadOnlyList<string> FavoriteFolders { get; init; } = [];
 }
 

@@ -111,4 +111,41 @@ public class P3SettingsWiringTests
 
         Assert.True(result.General.SetupCompleted);
     }
+
+    [Fact]
+    public void LauncherSettings_Defaults_IncludeBuiltinToolsAndDefaultToolsInitialized()
+    {
+        var settings = new LauncherSettings();
+        Assert.True(settings.DefaultToolsInitialized);
+        Assert.NotNull(settings.PinnedAppIds);
+        Assert.Equal(6, settings.PinnedAppIds.Count);
+        Assert.Contains("builtin:clipboard", settings.PinnedAppIds);
+        Assert.Contains("builtin:superpanel", settings.PinnedAppIds);
+        Assert.Contains("builtin:filesearch", settings.PinnedAppIds);
+        Assert.Contains("builtin:rename", settings.PinnedAppIds);
+        Assert.Contains("builtin:powertimer", settings.PinnedAppIds);
+        Assert.Contains("builtin:settings", settings.PinnedAppIds);
+    }
+
+    [Fact]
+    public void LauncherSettings_Serialization_RoundTrip_PreservesPinnedAppIdsAndDefaultToolsInitialized()
+    {
+        var original = new PankinSettings
+        {
+            Launcher = new LauncherSettings
+            {
+                DefaultToolsInitialized = true,
+                PinnedAppIds = ["builtin:clipboard", "org.gnome.Terminal.desktop"]
+            }
+        };
+
+        var json = JsonSerializer.Serialize(original);
+        var loaded = JsonSerializer.Deserialize<PankinSettings>(json);
+
+        Assert.NotNull(loaded);
+        Assert.True(loaded.Launcher.DefaultToolsInitialized);
+        Assert.Equal(2, loaded.Launcher.PinnedAppIds.Count);
+        Assert.Equal("builtin:clipboard", loaded.Launcher.PinnedAppIds[0]);
+        Assert.Equal("org.gnome.Terminal.desktop", loaded.Launcher.PinnedAppIds[1]);
+    }
 }
