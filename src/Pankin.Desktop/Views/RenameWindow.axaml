@@ -1,0 +1,159 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Pankin.Desktop.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="920" d:DesignHeight="580"
+        x:Class="Pankin.Desktop.Views.RenameWindow"
+        x:DataType="vm:RenameViewModel"
+        Width="920" Height="580"
+        MinWidth="760" MinHeight="440"
+        WindowStartupLocation="CenterScreen"
+        Background="#18181B"
+        ExtendClientAreaToDecorationsHint="True"
+        Title="批量重命名 (Batch Rename)">
+
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="Foreground" Value="#F4F4F5"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="8,5"/>
+        </Style>
+        <Style Selector="Button.action-btn">
+            <Setter Property="Background" Value="#3B82F6"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.action-btn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2563EB"/>
+        </Style>
+        <Style Selector="Button.secondary-btn">
+            <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12,6"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="44, *, 52">
+        <!-- 顶部拖拽栏 -->
+        <Border Grid.Row="0" Background="#202023" x:Name="TopDragArea">
+            <Grid ColumnDefinitions="Auto, *, Auto" Margin="14,0">
+                <TextBlock Text="批量重命名 (Batch Rename)" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Content="✕" Width="30" Height="30"
+                        Background="Transparent" Foreground="#A1A1AA"
+                        CornerRadius="4" VerticalAlignment="Center"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Click="OnCloseClick"/>
+            </Grid>
+        </Border>
+
+        <!-- 主体区域：左侧规则，右侧预览 -->
+        <Grid Grid.Row="1" ColumnDefinitions="320, *" Margin="16,12">
+            <!-- 左侧规则栏 -->
+            <Border Grid.Column="0" Background="#202024" CornerRadius="8" Padding="14" Margin="0,0,12,0">
+                <ScrollViewer>
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="重命名规则" FontWeight="SemiBold" FontSize="15" Foreground="#60A5FA"/>
+
+                        <TextBlock Text="规则种类:" Margin="0,4,0,0"/>
+                        <ComboBox SelectedIndex="{Binding SelectedRuleTypeIndex}" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="替换文本 (Replace)"/>
+                            <ComboBoxItem Content="插入文本 (Insert)"/>
+                            <ComboBoxItem Content="数字编号 (Number)"/>
+                            <ComboBoxItem Content="修改大小写 (Case)"/>
+                            <ComboBoxItem Content="修改扩展名 (Extension)"/>
+                        </ComboBox>
+
+                        <TextBlock Text="查找文本:" Margin="0,4,0,0"/>
+                        <TextBox Text="{Binding FindText}" Watermark="留空或输入查找内容"/>
+
+                        <TextBlock Text="替换 / 插入文本:" Margin="0,4,0,0"/>
+                        <TextBox Text="{Binding ReplaceText}" Watermark="目标文本 / 扩展名"/>
+
+                        <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,4,0,0">
+                            <CheckBox IsChecked="{Binding IsRegex}" Content="正则表达式"/>
+                            <CheckBox IsChecked="{Binding MatchCase}" Content="区分大小写"/>
+                        </StackPanel>
+
+                        <Button Classes="action-btn" Content="添加规则" Command="{Binding AddRuleCommand}" HorizontalAlignment="Stretch" Margin="0,6,0,0"/>
+
+                        <Separator Background="#3F3F46" Margin="0,8"/>
+
+                        <Grid ColumnDefinitions="*, Auto">
+                            <TextBlock Text="已启用的规则列表" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Classes="secondary-btn" Content="清空" Command="{Binding ClearRulesCommand}" Padding="8,4"/>
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding Rules}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#27272A" CornerRadius="6" Padding="8,6" Margin="0,3">
+                                        <Grid ColumnDefinitions="*, Auto">
+                                            <TextBlock Text="{Binding DisplayText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <Button Grid.Column="1" Content="✕" Width="22" Height="22"
+                                                    Background="Transparent" Foreground="#EF4444"
+                                                    Command="{Binding $parent[ItemsControl].((vm:RenameViewModel)DataContext).RemoveRuleCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- 右侧预览列表 -->
+            <Border Grid.Column="1" Background="#202024" CornerRadius="8" Padding="14">
+                <Grid RowDefinitions="Auto, *">
+                    <Grid Grid.Row="0" ColumnDefinitions="*, 30, *, 100" Margin="8,0,8,8">
+                        <TextBlock Text="原文件名" FontWeight="SemiBold" Foreground="#9CA3AF"/>
+                        <TextBlock Grid.Column="2" Text="新文件名" FontWeight="SemiBold" Foreground="#9CA3AF"/>
+                        <TextBlock Grid.Column="3" Text="状态" FontWeight="SemiBold" Foreground="#9CA3AF" HorizontalAlignment="Right"/>
+                    </Grid>
+
+                    <ListBox Grid.Row="1" ItemsSource="{Binding Previews}" Background="Transparent">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="*, 30, *, 100" Margin="0,2">
+                                    <TextBlock Text="{Binding OldName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1" Text="→" Foreground="#6B7280" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding NewName}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <Border Grid.Column="3" Background="{Binding BadgeColor}" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding IssueBadge}" FontSize="11" Foreground="White"/>
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 底部状态栏与操作按钮 -->
+        <Border Grid.Row="2" Background="#202023" Padding="16,0">
+            <Grid ColumnDefinitions="*, Auto">
+                <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Foreground="#A1A1AA" TextTrimming="CharacterEllipsis"/>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Button Classes="secondary-btn" Content="添加文件..." Click="OnAddFilesClick"/>
+                    <Button Classes="secondary-btn" Content="刷新预览" Command="{Binding RefreshPreviewCommand}"/>
+                    <Button Classes="secondary-btn" Content="撤销刚才 (Ctrl+Z)" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}"/>
+                    <Button Classes="action-btn" Content="执行重命名 (Ctrl+Enter)" Command="{Binding ApplyRenameCommand}" IsEnabled="{Binding CanApply}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

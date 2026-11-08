@@ -1,0 +1,173 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Pankin.Desktop.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="480"
+        x:Class="Pankin.Desktop.Views.SetupWindow"
+        x:DataType="vm:SetupViewModel"
+        Width="600" Height="480"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Background="#18181B"
+        ExtendClientAreaToDecorationsHint="True"
+        Title="Pankin 首次运行配置向导">
+
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="Foreground" Value="#F4F4F5"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+        <Style Selector="Button.nav-btn">
+            <Setter Property="Background" Value="#3B82F6"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.nav-btn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2563EB"/>
+        </Style>
+        <Style Selector="Button.secondary-btn">
+            <Setter Property="Background" Value="#27272A"/>
+            <Setter Property="Foreground" Value="#E4E4E7"/>
+            <Setter Property="BorderBrush" Value="#3F3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="14,8"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="50, *, 60">
+        <!-- 顶部拖拽栏与标题 -->
+        <Border Grid.Row="0" Background="#202023" x:Name="TopDragArea">
+            <Grid ColumnDefinitions="Auto, *, Auto" Margin="16,0">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="Pankin" FontWeight="Bold" FontSize="15" Foreground="#60A5FA"/>
+                    <TextBlock Text="首次运行配置向导" FontSize="13" Foreground="#9CA3AF" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <Button Grid.Column="2" Content="✕" Width="28" Height="28"
+                        Background="Transparent" Foreground="#A1A1AA"
+                        CornerRadius="4" VerticalAlignment="Center"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Click="OnCloseClick"/>
+            </Grid>
+        </Border>
+
+        <!-- 中部向导内容区 -->
+        <Border Grid.Row="1" Padding="32,20">
+            <Grid RowDefinitions="Auto, *">
+                <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
+                    <TextBlock Text="{Binding StepTitle}" FontSize="20" FontWeight="Bold" Foreground="#F4F4F5"/>
+                    <TextBlock Text="{Binding StepDescription}" FontSize="13" Foreground="#9CA3AF"/>
+                </StackPanel>
+
+                <!-- 步骤 0: 欢迎页 -->
+                <StackPanel Grid.Row="1" Spacing="16" IsVisible="{Binding CurrentStepIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}" VerticalAlignment="Center">
+                    <Border Width="64" Height="64" CornerRadius="16" Background="#2563EB" HorizontalAlignment="Center">
+                        <TextBlock Text="P" FontSize="36" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="欢迎使用 Pankin 桌面效率中枢" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="原生支持应用检索、剪贴板历史、划词超级面板、鼠标手势与 AI 辅助。只需简单几步，即可配置完毕。" TextWrapping="Wrap" TextAlignment="Center" Foreground="#A1A1AA" MaxWidth="440" HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- 步骤 1: 语言选择 -->
+                <StackPanel Grid.Row="1" Spacing="14" IsVisible="{Binding CurrentStepIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=1}" VerticalAlignment="Center">
+                    <TextBlock Text="选择显示语言 (Select Language):" FontWeight="SemiBold"/>
+                    <RadioButton GroupName="Lang" Content="简体中文 (zh-CN)" IsChecked="{Binding Language, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=zh-CN}"/>
+                    <RadioButton GroupName="Lang" Content="English (en-US)" IsChecked="{Binding Language, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=en-US}"/>
+                    <RadioButton GroupName="Lang" Content="繁體中文 (zh-TW)" IsChecked="{Binding Language, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=zh-TW}"/>
+                </StackPanel>
+
+                <!-- 步骤 2: 依赖检测 -->
+                <Grid Grid.Row="1" RowDefinitions="*, Auto" IsVisible="{Binding CurrentStepIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=2}">
+                    <ListBox Grid.Row="0" ItemsSource="{Binding Dependencies}" Background="Transparent">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#202024" CornerRadius="8" Padding="12,10" Margin="0,4">
+                                    <Grid ColumnDefinitions="Auto, *, Auto">
+                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Width="170" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Spacing="2">
+                                            <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#A1A1AA"/>
+                                            <TextBlock Text="{Binding InstallCommand}" FontSize="11" Foreground="#60A5FA" FontFamily="Monospace"/>
+                                        </StackPanel>
+                                        <Border Grid.Column="2" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding IsInstalled, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                       Foreground="{Binding IsInstalled, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Button Grid.Row="1" Classes="secondary-btn" Content="重新检测依赖" Command="{Binding RefreshDependenciesCommand}" HorizontalAlignment="Right" Margin="0,8,0,0"/>
+                </Grid>
+
+                <!-- 步骤 3: 核心热键 -->
+                <StackPanel Grid.Row="1" Spacing="14" IsVisible="{Binding CurrentStepIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=3}" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="140, *" RowDefinitions="Auto, Auto" Margin="0,4">
+                        <TextBlock Text="启动器快捷键:" VerticalAlignment="Center"/>
+                        <TextBox Grid.Column="1" Text="{Binding LauncherHotkey}" Margin="0,0,0,10"/>
+
+                        <TextBlock Grid.Row="1" Text="剪贴板快捷键:" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ClipboardHotkey}"/>
+                    </Grid>
+                    <TextBlock Text="提示：如快捷键与系统桌面冲突，可随时在设置界面中重新修改。" FontSize="12" Foreground="#9CA3AF"/>
+                </StackPanel>
+
+                <!-- 步骤 4: AI 提供商配置 -->
+                <StackPanel Grid.Row="1" Spacing="12" IsVisible="{Binding CurrentStepIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=4}">
+                    <Grid ColumnDefinitions="120, *" RowDefinitions="Auto, Auto, Auto, Auto" Margin="0,4">
+                        <TextBlock Text="AI 提供商:" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Column="1" SelectedIndex="0" HorizontalAlignment="Stretch" Margin="0,0,0,8">
+                            <ComboBoxItem Content="DeepSeek (推荐)"/>
+                            <ComboBoxItem Content="OpenAI"/>
+                            <ComboBoxItem Content="Ollama 本地大模型"/>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="1" Text="API 基础地址:" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding AiBaseUrl}" Margin="0,0,0,8"/>
+
+                        <TextBlock Grid.Row="2" Text="API 密钥 (Key):" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding AiApiKey}" PasswordChar="●" Watermark="sk-..." Margin="0,0,0,8"/>
+
+                        <TextBlock Grid.Row="3" Text="默认模型名称:" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding AiModel}"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- 步骤 5: 自启动设置 -->
+                <StackPanel Grid.Row="1" Spacing="16" IsVisible="{Binding CurrentStepIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=5}" VerticalAlignment="Center">
+                    <CheckBox IsChecked="{Binding Autostart}" Content="开机与登录时自动启动 Pankin" FontSize="14" FontWeight="SemiBold"/>
+                    <TextBlock Text="启用后，系统将在 ~/.config/autostart 中创建 pankin.desktop 文件，每次登录自动就绪服务。" TextWrapping="Wrap" Foreground="#A1A1AA" FontSize="12"/>
+                </StackPanel>
+
+                <!-- 步骤 6: 完成页 -->
+                <StackPanel Grid.Row="1" Spacing="16" IsVisible="{Binding CurrentStepIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=6}" VerticalAlignment="Center">
+                    <TextBlock Text="🎉 恭喜，初始化设置已完成！" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#10B981"/>
+                    <TextBlock Text="点击下方完成按钮，Pankin 将以您的个性化偏好启动并常驻后台。可在托盘或通过快捷键随时唤醒。" TextWrapping="Wrap" TextAlignment="Center" Foreground="#A1A1AA" HorizontalAlignment="Center" MaxWidth="440"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 底部导航栏 -->
+        <Border Grid.Row="2" Background="#202023" Padding="24,0">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+                <Button Classes="secondary-btn" Content="上一步" Command="{Binding PreviousCommand}" IsVisible="{Binding CanGoPrevious}"/>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12">
+                    <Button Classes="nav-btn" Content="下一步" Command="{Binding NextCommand}" IsVisible="{Binding !IsLastStep}"/>
+                    <Button Classes="nav-btn" Content="完成并进入 Pankin" Command="{Binding CompleteSetupCommand}" IsVisible="{Binding IsLastStep}" Background="#10B981"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,95 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Pankin.Desktop.Views.GestureOverlayWindow"
+        Width="300" Height="110"
+        ShowInTaskbar="False"
+        SystemDecorations="None"
+        Topmost="True"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        ExtendClientAreaToDecorationsHint="True"
+        WindowStartupLocation="Manual"
+        CanResize="False"
+        IsHitTestVisible="False"
+        Title="Pankin 手势提示">
+
+    <!-- 磨砂玻璃手势提示胶囊 (完全鼠标穿透、不抢焦点) -->
+    <Border Name="OverlayCard"
+            CornerRadius="16"
+            Background="#FC1B1C22"
+            BorderBrush="#32FFFFFF"
+            BorderThickness="1"
+            BoxShadow="0 12 32 0 #66000000"
+            Padding="14,10"
+            ClipToBounds="True">
+        <Panel>
+            <!-- 柔和微光底色 -->
+            <Border CornerRadius="16" IsHitTestVisible="False">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                        <GradientStop Offset="0.0" Color="#1E3B5998" />
+                        <GradientStop Offset="0.5" Color="#08FFFFFF" />
+                        <GradientStop Offset="1.0" Color="#241E293B" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+
+            <Grid RowDefinitions="Auto,*,Auto">
+                <!-- 顶部：手势方向箭头、动作名称与代码 -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
+                    <!-- 方向箭头圆形徽章 -->
+                    <Border Grid.Column="0"
+                            Width="30" Height="30"
+                            Background="#253B82F6"
+                            CornerRadius="15"
+                            Margin="0,0,10,0">
+                        <TextBlock Name="ArrowText"
+                                   Text="→"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="#93C5FD"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+
+                    <!-- 绑定的快捷动作文案 -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Name="ActionLabel"
+                                   Text="前进 (Alt+Right)"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="#F0FFFFFF"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Name="HintLabel"
+                                   Text="松开执行手势"
+                                   FontSize="10"
+                                   Foreground="#70FFFFFF"
+                                   Margin="0,1,0,0" />
+                    </StackPanel>
+
+                    <!-- 轨迹代码徽章 (如 R, DR, Hold) -->
+                    <Border Grid.Column="2"
+                            Classes="keycap"
+                            VerticalAlignment="Center">
+                        <TextBlock Name="CodeLabel"
+                                   Classes="keycap-text"
+                                   Text="R" />
+                    </Border>
+                </Grid>
+
+                <!-- 中间：实时鼠标轨迹简图 -->
+                <Canvas Grid.Row="1"
+                        Name="TrailCanvas"
+                        Height="34"
+                        Margin="0,6,0,0"
+                        ClipToBounds="True">
+                    <Polyline Name="TrailPolyline"
+                              Stroke="#3B82F6"
+                              StrokeThickness="2.5"
+                              StrokeLineCap="Round"
+                              StrokeJoin="Round" />
+                </Canvas>
+            </Grid>
+        </Panel>
+    </Border>
+</Window>

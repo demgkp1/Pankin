@@ -1,0 +1,94 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Pankin.Desktop.App"
+             xmlns:local="using:Pankin.Desktop"
+             RequestedThemeVariant="Dark">
+
+    <Application.DataTemplates>
+        <local:ViewLocator />
+    </Application.DataTemplates>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <!-- 全局字体设定：优先使用 Noto Sans CJK SC 保证中文与英文清晰锐利统一 -->
+        <Style Selector="Window">
+            <Setter Property="FontFamily" Value="Noto Sans CJK SC, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" />
+            <Setter Property="FontWeight" Value="Regular" />
+        </Style>
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="Noto Sans CJK SC, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" />
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="FontFamily" Value="Noto Sans CJK SC, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" />
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="FontFamily" Value="Noto Sans CJK SC, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" />
+        </Style>
+
+        <!-- 消除启动器/剪贴板无边框搜索框的默认蓝色焦点粗框与背景变化 -->
+        <Style Selector="TextBox.pane-search">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.pane-search:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.pane-search:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
+        <!-- 原版 Keycap 键帽标签样式 -->
+        <Style Selector="Border.keycap">
+            <Setter Property="Background" Value="#1FFFFFFF" />
+            <Setter Property="BorderBrush" Value="#28FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="7,2" />
+            <Setter Property="MinHeight" Value="20" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.keycap-text">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#E0FFFFFF" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <!-- 卡片与磁贴悬停过渡 -->
+        <Style Selector="Button.tile-btn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="Button.tile-btn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1FFFFFFF" />
+        </Style>
+
+        <!-- 统一 98.5% 不透字磨砂玻璃卡片与容器样式 -->
+        <Style Selector="Border.frosted-panel">
+            <Setter Property="CornerRadius" Value="20" />
+            <Setter Property="Background" Value="#FC1B1C22" />
+            <Setter Property="BorderBrush" Value="#32FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BoxShadow" Value="0 16 40 0 #66000000" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+
+        <Style Selector="Border.module-card">
+            <Setter Property="Background" Value="#14FFFFFF" />
+            <Setter Property="BorderBrush" Value="#22FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="14" />
+            <Setter Property="Margin" Value="6" />
+        </Style>
+    </Application.Styles>
+</Application>
