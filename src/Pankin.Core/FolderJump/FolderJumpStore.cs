@@ -213,6 +213,62 @@ public sealed class FolderJumpStore
         }
     }
 
+    public async Task AddFolderAsync(string path, bool isPinned = true, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await EnsureLoadedAsync(ct).ConfigureAwait(false);
+            var norm = Normalize(path);
+            var name = Path.GetFileName(norm);
+            if (string.IsNullOrEmpty(name)) name = norm;
+
+            if (_items.TryGetValue(norm, out var item))
+            {
+                if (isPinned) item.IsPinned = true;
+                item.LastAccessed = DateTimeOffset.UtcNow;
+            }
+            else
+            {
+                _items[norm] = new FolderJumpItem
+                {
+                    Path = norm,
+                    Name = name,
+                    AccessCount = 1,
+                    LastAccessed = DateTimeOffset.UtcNow,
+                    IsPinned = isPinned
+                };
+            }
+            await SaveAsync(ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task<bool> RemoveFolderAsync(string path, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await EnsureLoadedAsync(ct).ConfigureAwait(false);
+            var norm = Normalize(path);
+            bool removed = _items.Remove(norm);
+            if (removed)
+            {
+                await SaveAsync(ct).ConfigureAwait(false);
+            }
+            return removed;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task<IReadOnlyList<FolderJumpEntry>> GetEntriesAsync(int limit = 15, CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct).ConfigureAwait(false);

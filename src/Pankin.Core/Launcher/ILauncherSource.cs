@@ -11,7 +11,10 @@ public sealed record SourceContext(
     IReadOnlyList<AppEntry> Apps,
     LauncherSettings Settings,
     IReadOnlyDictionary<string, AppUsage> Usage,
-    PankinSettings AllSettings);
+    PankinSettings AllSettings)
+{
+    public PankinSettings FullSettings => AllSettings;
+}
 
 /// <summary>
 /// 启动器搜索来源接口

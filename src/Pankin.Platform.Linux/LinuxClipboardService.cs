@@ -214,15 +214,16 @@ public sealed class LinuxClipboardService : IClipboardService
 
     private static async Task<string?> RunReadCommandAsync(string fileName, string[] args, CancellationToken ct)
     {
+        Process? process = null;
         try
         {
-            using var process = new Process
+            process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = fileName,
                     RedirectStandardOutput = true,
-                    RedirectStandardError = true,
+                    RedirectStandardError = false,
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     StandardOutputEncoding = Encoding.UTF8
@@ -248,6 +249,24 @@ public sealed class LinuxClipboardService : IClipboardService
         {
             return null;
         }
+        finally
+        {
+            if (process != null)
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill(entireProcessTree: true);
+                    }
+                }
+                catch
+                {
+                    // Ignore
+                }
+                process.Dispose();
+            }
+        }
     }
 
     private static async Task<bool> RunWriteCommandAsync(string fileName, string[] args, string content, CancellationToken ct)
@@ -260,7 +279,7 @@ public sealed class LinuxClipboardService : IClipboardService
                 {
                     FileName = fileName,
                     RedirectStandardInput = true,
-                    RedirectStandardError = true,
+                    RedirectStandardError = false,
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     StandardInputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)

@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="Pankin.Desktop.Views.GestureOverlayWindow"
-        Width="300" Height="110"
+        Width="324" Height="134"
         ShowInTaskbar="False"
         SystemDecorations="None"
         Topmost="True"
@@ -13,41 +13,30 @@
         IsHitTestVisible="False"
         Title="Pankin 手势提示">
 
-    <!-- 磨砂玻璃手势提示胶囊 (完全鼠标穿透、不抢焦点) -->
+    <!-- 磨砂玻璃手势提示胶囊 (留白 12px 用于呈现投影，完全鼠标穿透) -->
     <Border Name="OverlayCard"
+            Classes="frosted-panel"
+            Margin="12"
             CornerRadius="16"
-            Background="#FC1B1C22"
-            BorderBrush="#32FFFFFF"
-            BorderThickness="1"
-            BoxShadow="0 12 32 0 #66000000"
-            Padding="14,10"
-            ClipToBounds="True">
+            Padding="14,10">
         <Panel>
-            <!-- 柔和微光底色 -->
-            <Border CornerRadius="16" IsHitTestVisible="False">
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                        <GradientStop Offset="0.0" Color="#1E3B5998" />
-                        <GradientStop Offset="0.5" Color="#08FFFFFF" />
-                        <GradientStop Offset="1.0" Color="#241E293B" />
-                    </LinearGradientBrush>
-                </Border.Background>
-            </Border>
+            <!-- 顶部柔和高光 -->
+            <Border Classes="sheen" CornerRadius="16" />
 
             <Grid RowDefinitions="Auto,*,Auto">
                 <!-- 顶部：手势方向箭头、动作名称与代码 -->
                 <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
                     <!-- 方向箭头圆形徽章 -->
                     <Border Grid.Column="0"
-                            Width="30" Height="30"
-                            Background="#253B82F6"
-                            CornerRadius="15"
+                            Width="32" Height="32"
+                            Background="{DynamicResource Pk.AccentSoft}"
+                            CornerRadius="16"
                             Margin="0,0,10,0">
                         <TextBlock Name="ArrowText"
                                    Text="→"
                                    FontSize="16"
                                    FontWeight="Bold"
-                                   Foreground="#93C5FD"
+                                   Foreground="{DynamicResource Pk.Accent}"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center" />
                     </Border>
@@ -56,14 +45,12 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Name="ActionLabel"
                                    Text="前进 (Alt+Right)"
-                                   FontSize="13"
+                                   Classes="body"
                                    FontWeight="SemiBold"
-                                   Foreground="#F0FFFFFF"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Name="HintLabel"
                                    Text="松开执行手势"
-                                   FontSize="10"
-                                   Foreground="#70FFFFFF"
+                                   Classes="caption"
                                    Margin="0,1,0,0" />
                     </StackPanel>
 
@@ -84,7 +71,7 @@
                         Margin="0,6,0,0"
                         ClipToBounds="True">
                     <Polyline Name="TrailPolyline"
-                              Stroke="#3B82F6"
+                              Stroke="{DynamicResource Pk.Accent}"
                               StrokeThickness="2.5"
                               StrokeLineCap="Round"
                               StrokeJoin="Round" />

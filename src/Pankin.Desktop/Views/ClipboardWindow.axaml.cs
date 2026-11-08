@@ -3,10 +3,14 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Pankin.Desktop.ViewModels;
 
+using Pankin.Desktop.Services;
+
 namespace Pankin.Desktop.Views;
 
 public partial class ClipboardWindow : Window
 {
+    private long _lastActivatedMs;
+
     public ClipboardWindow()
     {
         InitializeComponent();
@@ -20,7 +24,22 @@ public partial class ClipboardWindow : Window
         };
 
         KeyDown += OnWindowKeyDown;
-        Opened += (_, _) => FocusSearchInput();
+        Activated += (_, _) => _lastActivatedMs = Environment.TickCount64;
+        Opened += (_, _) =>
+        {
+            _lastActivatedMs = Environment.TickCount64;
+            FocusSearchInput();
+        };
+
+        Deactivated += (_, _) =>
+        {
+            if (IsVisible &&
+                Environment.TickCount64 - _lastActivatedMs > 180 &&
+                DesktopAppContext.Instance.SettingsStore.Current.General.HideOnDeactivate)
+            {
+                Hide();
+            }
+        };
 
         HistoryListBox.DoubleTapped += (_, _) =>
         {

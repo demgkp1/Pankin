@@ -191,4 +191,28 @@ public class LauncherSearchTests
             if (Directory.Exists(dir)) Directory.Delete(dir, true);
         }
     }
+
+    [Fact]
+    public void GetRecentApps_ShouldPrioritizeRecentlyUsedApps()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            using var search = CreateLauncherSearch(tempFile);
+            bool eventFired = false;
+            search.UsageChanged += (_, _) => eventFired = true;
+
+            search.RecordUsage("code");
+
+            Assert.True(eventFired);
+            var recents = search.GetRecentApps(5);
+            Assert.NotEmpty(recents);
+            Assert.Equal("code", recents[0].Id);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
 }

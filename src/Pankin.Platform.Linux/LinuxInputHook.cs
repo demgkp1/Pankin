@@ -1,22 +1,27 @@
-using Pankin.Core.Selection;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Pankin.Core.Abstractions;
 using Pankin.Core.Gestures;
+using Pankin.Core.Selection;
 using SharpHook;
 using SharpHook.Native;
 
 namespace Pankin.Platform.Linux;
 
 /// <summary>
-/// 针对 Ubuntu 24.04 深度优化的全局快捷键、鼠标手势（支持右键拖拽/中键/侧键 + 实时轨迹事件）与划词钩子。
+/// 针对 Ubuntu 24.04 优化的全局快捷键与划词钩子（支持动态热键配置、GNOME Wayland 快捷键绑定与左键划词感知）。
 /// </summary>
 public sealed class LinuxInputHook : IGlobalInputHook
 {
     private const int IpcUdpPort = 49182;
-    private const long DoubleTapThresholdMs = 450;
 
     private readonly IClipboardService _clipboardService;
     private readonly bool _ownsClipboardService;
@@ -27,21 +32,17 @@ public sealed class LinuxInputHook : IGlobalInputHook
     private volatile bool _isRunning;
     private bool _isDisposed;
 
-    // 双击 Ctrl 状态跟踪（基于事件 Mask 与时间戳，不依赖易卡死的布尔锁存）
-    private long _lastNonCtrlKeyMs;
-    private long _lastCtrlDownMs;
-    private long _lastCtrlReleaseMs;
     private long _lastTriggerMs;
 
-    // 鼠标手势状态跟踪（支持右键 Button2、中键 Button3、侧键 Button4/Button5）
-    private readonly object _gestureLock = new();
-    private bool _isGestureCandidate;
-    private bool _isGestureDragging;
-    private MouseButton _activeGestureButton;
-    private long _gestureStartTime;
-    private double _gestureStartX;
-    private double _gestureStartY;
-    private readonly List<GesturePoint> _gestureTrajectory = [];
+    private readonly object _gnomeRegLock = new();
+
+    // 热键配置与解析
+    private string _rawLauncherHotkey = "Ctrl+Space";
+    private string _rawClipboardHotkey = "Alt+V";
+    private string _rawSuperPanelHotkey = "Alt+S";
+    private ParsedHotkey? _parsedLauncherHotkey;
+    private ParsedHotkey? _parsedClipboardHotkey;
+    private ParsedHotkey? _parsedSuperPanelHotkey;
 
     // 鼠标左键拖拽划词状态跟踪
     private volatile bool _leftMouseDown;
@@ -51,9 +52,9 @@ public sealed class LinuxInputHook : IGlobalInputHook
     private string? _lastSelectedText;
     private readonly SelectionDebounceFilter _selectionFilter = new();
 
+    public bool SuperPanelEnabled { get; set; } = true;
+
     public event EventHandler<GlobalHotkeyEventArgs>? HotkeyTriggered;
-    public event EventHandler<MouseGestureProgressEventArgs>? GestureProgress;
-    public event EventHandler<MouseGestureEventArgs>? GestureRecognized;
     public event EventHandler<SelectionTriggeredEventArgs>? SelectionTriggered;
 
     public LinuxInputHook(IClipboardService? clipboardService = null)
@@ -68,6 +69,48 @@ public sealed class LinuxInputHook : IGlobalInputHook
             _clipboardService = new LinuxClipboardService();
             _ownsClipboardService = true;
         }
+
+        UpdateHotkeys("Ctrl+Space", "Alt+V", "Alt+S");
+    }
+
+    public void UpdateHotkeys(string launcherHotkey, string clipboardHotkey, string superPanelHotkey)
+    {
+        var normLauncher = string.IsNullOrWhiteSpace(launcherHotkey) ? "Ctrl+Space" : launcherHotkey.Trim();
+        var normClipboard = string.IsNullOrWhiteSpace(clipboardHotkey) ? "Alt+V" : clipboardHotkey.Trim();
+        var normSuperPanel = string.IsNullOrWhiteSpace(superPanelHotkey) ? "Alt+S" : superPanelHotkey.Trim();
+
+        if (_parsedLauncherHotkey != null &&
+            _parsedClipboardHotkey != null &&
+            _parsedSuperPanelHotkey != null &&
+            string.Equals(_rawLauncherHotkey, normLauncher, StringComparison.Ordinal) &&
+            string.Equals(_rawClipboardHotkey, normClipboard, StringComparison.Ordinal) &&
+            string.Equals(_rawSuperPanelHotkey, normSuperPanel, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _rawLauncherHotkey = normLauncher;
+        _rawClipboardHotkey = normClipboard;
+        _rawSuperPanelHotkey = normSuperPanel;
+
+        _parsedLauncherHotkey = ParseHotkey(_rawLauncherHotkey);
+        _parsedClipboardHotkey = ParseHotkey(_rawClipboardHotkey);
+        _parsedSuperPanelHotkey = ParseHotkey(_rawSuperPanelHotkey);
+
+        if (_isRunning)
+        {
+            _ = Task.Run(RegisterGnomeWaylandShortcuts);
+        }
+    }
+
+    public void ConfigureSelectionFilter(Pankin.Core.Settings.SuperPanelSettings settings)
+    {
+        if (settings == null) return;
+        SuperPanelEnabled = settings.Enabled;
+        _selectionFilter.TriggerOnMouseUp = settings.TriggerOnSelection && settings.TriggerOnMouseUp;
+        _selectionFilter.TriggerOnDoubleClick = settings.TriggerOnSelection && settings.TriggerOnDoubleClick;
+        _selectionFilter.MinLength = settings.SelectionMinLength;
+        _selectionFilter.MaxLength = settings.SelectionMaxLength;
     }
 
     public Task StartAsync(CancellationToken ct = default)
@@ -182,13 +225,13 @@ public sealed class LinuxInputHook : IGlobalInputHook
         switch (cmd)
         {
             case "ToggleLauncher":
-                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleLauncher, "Ctrl+Space"));
+                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleLauncher, _rawLauncherHotkey));
                 break;
             case "ToggleClipboard":
-                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleClipboard, "Alt+V"));
+                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleClipboard, _rawClipboardHotkey));
                 break;
             case "ToggleSuperPanel":
-                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleSuperPanel, "Alt+S"));
+                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleSuperPanel, _rawSuperPanelHotkey));
                 break;
             case "OpenSettings":
                 HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.OpenSettings, "Alt+,"));
@@ -196,74 +239,92 @@ public sealed class LinuxInputHook : IGlobalInputHook
         }
     }
 
-    private static void RegisterGnomeWaylandShortcuts()
+    private void RegisterGnomeWaylandShortcuts()
     {
-        try
+        lock (_gnomeRegLock)
         {
-            var desktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "";
-            if (!desktop.Contains("GNOME", StringComparison.OrdinalIgnoreCase) &&
-                !desktop.Contains("ubuntu", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                return;
-            }
-
-            var existing = RunGsettings("get org.gnome.settings-daemon.plugins.media-keys custom-keybindings") ?? "[]";
-            var slots = new (string Path, string Name, string Cmd, string Key)[]
-            {
-                ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-launcher/", "Pankin Launcher", "ToggleLauncher", "<Control>space"),
-                ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-clipboard/", "Pankin Clipboard", "ToggleClipboard", "<Alt>v"),
-                ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-clipboard2/", "Pankin Clipboard CtrlShiftV", "ToggleClipboard", "<Control><Shift>v"),
-                ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-super/", "Pankin SuperPanel", "ToggleSuperPanel", "<Alt>s"),
-                ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-settings/", "Pankin Settings", "OpenSettings", "<Alt>comma")
-            };
-
-            var pathsList = new List<string>();
-            var matches = System.Text.RegularExpressions.Regex.Matches(existing, @"'([^']+)'");
-            foreach (System.Text.RegularExpressions.Match m in matches)
-            {
-                var p = m.Groups[1].Value;
-                if (!string.IsNullOrWhiteSpace(p) && !pathsList.Contains(p))
+                var desktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "";
+                if (!desktop.Contains("GNOME", StringComparison.OrdinalIgnoreCase) &&
+                    !desktop.Contains("ubuntu", StringComparison.OrdinalIgnoreCase))
                 {
-                    pathsList.Add(p);
+                    return;
+                }
+
+                var launcherBinding = _parsedLauncherHotkey?.GnomeBinding ?? "<Control>space";
+                var clipboardBinding = _parsedClipboardHotkey?.GnomeBinding ?? "<Alt>v";
+                var superPanelBinding = _parsedSuperPanelHotkey?.GnomeBinding ?? "<Alt>s";
+
+                var existing = RunGsettings("get org.gnome.settings-daemon.plugins.media-keys custom-keybindings") ?? "[]";
+                var slots = new (string Path, string Name, string Cmd, string Key)[]
+                {
+                    ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-launcher/", "Pankin Launcher", "ToggleLauncher", launcherBinding),
+                    ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-clipboard/", "Pankin Clipboard", "ToggleClipboard", clipboardBinding),
+                    ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-super/", "Pankin SuperPanel", "ToggleSuperPanel", superPanelBinding),
+                    ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-settings/", "Pankin Settings", "OpenSettings", "<Alt>comma")
+                };
+                var validPaths = slots.Select(s => s.Path).ToHashSet(StringComparer.Ordinal);
+
+                var pathsList = new List<string>();
+                var matches = System.Text.RegularExpressions.Regex.Matches(existing, @"'([^']+)'");
+                foreach (System.Text.RegularExpressions.Match m in matches)
+                {
+                    var p = m.Groups[1].Value;
+                    if (string.IsNullOrWhiteSpace(p)) continue;
+
+                    // 清理旧版本遗留或多余的 pankin 快捷键条目（如曾用的 pankin-clipboard2），避免抢占系统与终端快捷键
+                    if (p.Contains("/pankin-", StringComparison.OrdinalIgnoreCase) && !validPaths.Contains(p))
+                    {
+                        RunGsettings($"reset-recursively org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{p}");
+                        continue;
+                    }
+
+                    if (!pathsList.Contains(p))
+                    {
+                        pathsList.Add(p);
+                    }
+                }
+
+                foreach (var slot in slots)
+                {
+                    if (!pathsList.Contains(slot.Path))
+                    {
+                        pathsList.Add(slot.Path);
+                    }
+                }
+
+                var arrayLiteral = "[" + string.Join(", ", pathsList.Select(p => $"'{p}'")) + "]";
+                RunGsettings($"set org.gnome.settings-daemon.plugins.media-keys custom-keybindings \"{arrayLiteral}\"");
+
+                foreach (var slot in slots)
+                {
+                    var udpCmd = $"/bin/bash -c \"printf '%s' '{slot.Cmd}' > /dev/udp/127.0.0.1/{IpcUdpPort}\"";
+                    ConfigureSingleGnomeShortcut(slot.Path, slot.Name, udpCmd, slot.Key);
                 }
             }
-
-            foreach (var slot in slots)
+            catch
             {
-                if (!pathsList.Contains(slot.Path))
-                {
-                    pathsList.Add(slot.Path);
-                }
+                // Ignore
             }
-
-            var arrayLiteral = "[" + string.Join(", ", pathsList.Select(p => $"'{p}'")) + "]";
-            RunGsettings($"set org.gnome.settings-daemon.plugins.media-keys custom-keybindings \"{arrayLiteral}\"");
-
-            foreach (var slot in slots)
-            {
-                var pyCmd = $"python3 -c \"import socket; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(b'{slot.Cmd}', ('127.0.0.1', {IpcUdpPort}))\"";
-                ConfigureSingleGnomeShortcut(slot.Path, slot.Name, pyCmd, slot.Key);
-            }
-        }
-        catch
-        {
-            // Ignore
         }
     }
 
     private static void ConfigureSingleGnomeShortcut(string path, string name, string command, string binding)
     {
         var schemaWithPath = $"org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{path}";
+        var escapedCommand = command.Replace("\"", "\\\"");
         RunGsettings($"set {schemaWithPath} name \"{name}\"");
-        RunGsettings($"set {schemaWithPath} command \"{command}\"");
+        RunGsettings($"set {schemaWithPath} command \"{escapedCommand}\"");
         RunGsettings($"set {schemaWithPath} binding \"{binding}\"");
     }
 
     private static string? RunGsettings(string arguments)
     {
+        Process? proc = null;
         try
         {
-            using var proc = Process.Start(new ProcessStartInfo
+            proc = Process.Start(new ProcessStartInfo
             {
                 FileName = "gsettings",
                 Arguments = arguments,
@@ -273,13 +334,47 @@ public sealed class LinuxInputHook : IGlobalInputHook
                 CreateNoWindow = true
             });
             if (proc == null) return null;
-            var output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(1500);
-            return proc.ExitCode == 0 ? output.Trim() : null;
+
+            var readTask = proc.StandardOutput.ReadToEndAsync();
+            if (proc.WaitForExit(1500) && readTask.Wait(200))
+            {
+                return proc.ExitCode == 0 ? readTask.Result.Trim() : null;
+            }
+
+            try
+            {
+                if (!proc.HasExited)
+                {
+                    proc.Kill(entireProcessTree: true);
+                }
+            }
+            catch
+            {
+                // Ignore
+            }
+            return null;
         }
         catch
         {
             return null;
+        }
+        finally
+        {
+            if (proc != null)
+            {
+                try
+                {
+                    if (!proc.HasExited)
+                    {
+                        proc.Kill(entireProcessTree: true);
+                    }
+                }
+                catch
+                {
+                    // Ignore
+                }
+                proc.Dispose();
+            }
         }
     }
 
@@ -289,52 +384,41 @@ public sealed class LinuxInputHook : IGlobalInputHook
         var mask = e.RawEvent.Mask;
         var now = Environment.TickCount64;
 
-        if (key is KeyCode.VcLeftControl or KeyCode.VcRightControl)
+        if (Matches(mask, key, _parsedLauncherHotkey))
         {
-            if (now - _lastCtrlDownMs > 250)
+            if (now - _lastTriggerMs >= 280)
             {
-                _lastCtrlDownMs = now;
+                _lastTriggerMs = now;
+                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleLauncher, _rawLauncherHotkey));
             }
             return;
         }
 
-        _lastNonCtrlKeyMs = now;
+        if (Matches(mask, key, _parsedClipboardHotkey))
+        {
+            if (now - _lastTriggerMs >= 280)
+            {
+                _lastTriggerMs = now;
+                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleClipboard, _rawClipboardHotkey));
+            }
+            return;
+        }
 
+        if (Matches(mask, key, _parsedSuperPanelHotkey))
+        {
+            if (now - _lastTriggerMs >= 280)
+            {
+                _lastTriggerMs = now;
+                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleSuperPanel, _rawSuperPanelHotkey));
+            }
+            return;
+        }
+
+        // 默认保留固定设置快捷键 Alt+,
         bool isAlt = (mask & (ModifierMask.LeftAlt | ModifierMask.RightAlt)) != 0;
         bool isCtrl = (mask & (ModifierMask.LeftCtrl | ModifierMask.RightCtrl)) != 0;
         bool isShift = (mask & (ModifierMask.LeftShift | ModifierMask.RightShift)) != 0;
-
-        if (key == KeyCode.VcSpace && (isCtrl || isAlt))
-        {
-            if (now - _lastTriggerMs >= 280)
-            {
-                _lastTriggerMs = now;
-                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleLauncher, isCtrl ? "Ctrl+Space" : "Alt+Space"));
-            }
-            return;
-        }
-
-        if (key == KeyCode.VcV && (isAlt || (isCtrl && isShift)))
-        {
-            if (now - _lastTriggerMs >= 280)
-            {
-                _lastTriggerMs = now;
-                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleClipboard, isAlt ? "Alt+V" : "Ctrl+Shift+V"));
-            }
-            return;
-        }
-
-        if (key == KeyCode.VcS && isAlt)
-        {
-            if (now - _lastTriggerMs >= 280)
-            {
-                _lastTriggerMs = now;
-                HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleSuperPanel, "Alt+S"));
-            }
-            return;
-        }
-
-        if (key == KeyCode.VcComma && isAlt)
+        if (key == KeyCode.VcComma && isAlt && !isCtrl && !isShift)
         {
             if (now - _lastTriggerMs >= 280)
             {
@@ -346,61 +430,22 @@ public sealed class LinuxInputHook : IGlobalInputHook
 
     private void OnKeyReleased(object? sender, KeyboardHookEventArgs e)
     {
-        var key = e.Data.KeyCode;
-        var now = Environment.TickCount64;
-
-        if (key is KeyCode.VcLeftControl or KeyCode.VcRightControl)
-        {
-            if (now - _lastNonCtrlKeyMs > 300)
-            {
-                if (now - _lastCtrlReleaseMs <= DoubleTapThresholdMs && (now - _lastCtrlReleaseMs) >= 40)
-                {
-                    _lastCtrlReleaseMs = 0;
-                    if (now - _lastTriggerMs >= 280)
-                    {
-                        _lastTriggerMs = now;
-                        HotkeyTriggered?.Invoke(this, new GlobalHotkeyEventArgs(GlobalHotkeyAction.ToggleLauncher, "双击 Ctrl"));
-                    }
-                }
-                else
-                {
-                    _lastCtrlReleaseMs = now;
-                }
-            }
-        }
+        // 彻底移除双击 Ctrl 触发逻辑
     }
 
     private void OnMousePressed(object? sender, MouseHookEventArgs e)
     {
-        var now = Environment.TickCount64;
-        _lastNonCtrlKeyMs = now;
-        var button = e.Data.Button;
-        double x = e.Data.X;
-        double y = e.Data.Y;
+        if (!SuperPanelEnabled) return;
 
+        var button = e.Data.Button;
         if (button == MouseButton.Button1)
         {
+            var now = Environment.TickCount64;
             _leftMouseDown = true;
             _leftMouseDragged = false;
-            _leftMouseDownX = x;
-            _leftMouseDownY = y;
-            _selectionFilter.RecordMouseDown(1, x, y, now);
-            return;
-        }
-
-        if (button is MouseButton.Button2 or MouseButton.Button3 or MouseButton.Button4 or MouseButton.Button5)
-        {
-            lock (_gestureLock)
-            {
-                _isGestureCandidate = true;
-                _isGestureDragging = false;
-                _activeGestureButton = button;
-                _gestureStartTime = now;
-                _gestureStartX = x;
-                _gestureStartY = y;
-                _gestureTrajectory.Clear();
-                _gestureTrajectory.Add(new GesturePoint(x, y, now));
-            }
+            _leftMouseDownX = e.Data.X;
+            _leftMouseDownY = e.Data.Y;
+            _selectionFilter.RecordMouseDown(1, e.Data.X, e.Data.Y, now);
         }
     }
 
@@ -409,6 +454,8 @@ public sealed class LinuxInputHook : IGlobalInputHook
 
     private void HandlePointerMove(double x, double y)
     {
+        if (!SuperPanelEnabled) return;
+
         if (_leftMouseDown && !_leftMouseDragged)
         {
             var dx = x - _leftMouseDownX;
@@ -418,92 +465,23 @@ public sealed class LinuxInputHook : IGlobalInputHook
                 _leftMouseDragged = true;
             }
         }
-
-        List<GesturePoint>? snapshot = null;
-        lock (_gestureLock)
-        {
-            if (_isGestureCandidate)
-            {
-                var now = Environment.TickCount64;
-                _gestureTrajectory.Add(new GesturePoint(x, y, now));
-                var dist = Math.Sqrt((x - _gestureStartX) * (x - _gestureStartX) + (y - _gestureStartY) * (y - _gestureStartY));
-                if (dist >= 24.0)
-                {
-                    _isGestureDragging = true;
-                }
-
-                if (_isGestureDragging)
-                {
-                    snapshot = [.. _gestureTrajectory];
-                }
-            }
-        }
-
-        if (snapshot != null)
-        {
-            var dir = GestureRecognizer.Recognize(snapshot, minimumDistance: 24.0) ?? "";
-            GestureProgress?.Invoke(this, new MouseGestureProgressEventArgs(true, dir, snapshot, x, y));
-        }
     }
 
     private void OnMouseReleased(object? sender, MouseHookEventArgs e)
     {
-        var button = e.Data.Button;
-        double x = e.Data.X;
-        double y = e.Data.Y;
+        if (!SuperPanelEnabled) return;
 
+        var button = e.Data.Button;
         if (button == MouseButton.Button1)
         {
             bool wasDragged = _leftMouseDown && _leftMouseDragged;
             _leftMouseDown = false;
             _leftMouseDragged = false;
 
-            var decision = _selectionFilter.RecordMouseUp(1, x, y, Environment.TickCount64, wasDragged);
+            var decision = _selectionFilter.RecordMouseUp(1, e.Data.X, e.Data.Y, Environment.TickCount64, wasDragged);
             if (decision.ShouldTrigger)
             {
                 _ = CaptureSelectionOnReleaseAsync(decision.X, decision.Y, decision.TriggerType);
-            }
-            return;
-        }
-
-        List<GesturePoint>? points = null;
-        long duration = 0;
-        bool wasDragging = false;
-        MouseButton releasedBtn = MouseButton.NoButton;
-
-        lock (_gestureLock)
-        {
-            if (_isGestureCandidate && button == _activeGestureButton)
-            {
-                _isGestureCandidate = false;
-                wasDragging = _isGestureDragging;
-                _isGestureDragging = false;
-                releasedBtn = _activeGestureButton;
-                var now = Environment.TickCount64;
-                duration = now - _gestureStartTime;
-                _gestureTrajectory.Add(new GesturePoint(x, y, now));
-                points = [.. _gestureTrajectory];
-                _gestureTrajectory.Clear();
-            }
-        }
-
-        if (points != null)
-        {
-            GestureProgress?.Invoke(this, new MouseGestureProgressEventArgs(false, "", [], x, y));
-
-            var start = points[0];
-            var end = points[^1];
-            var recognized = wasDragging ? GestureRecognizer.Recognize(points, minimumDistance: 28.0) : null;
-
-            if (!string.IsNullOrEmpty(recognized))
-            {
-                GestureRecognized?.Invoke(this, new MouseGestureEventArgs(
-                    recognized, points, start.X, start.Y, end.X, end.Y));
-            }
-            else if (!wasDragging && releasedBtn is MouseButton.Button4 or MouseButton.Button5 or MouseButton.Button3 && duration >= 260)
-            {
-                GestureRecognized?.Invoke(this, new MouseGestureEventArgs(
-                    "Hold", points, start.X, start.Y, end.X, end.Y));
             }
         }
     }
@@ -544,6 +522,132 @@ public sealed class LinuxInputHook : IGlobalInputHook
         }
     }
 
+    private static bool Matches(ModifierMask mask, KeyCode key, ParsedHotkey? hotkey)
+    {
+        if (hotkey == null) return false;
+        if (key != hotkey.KeyCode) return false;
+
+        bool isCtrl = (mask & (ModifierMask.LeftCtrl | ModifierMask.RightCtrl)) != 0;
+        bool isAlt = (mask & (ModifierMask.LeftAlt | ModifierMask.RightAlt)) != 0;
+        bool isShift = (mask & (ModifierMask.LeftShift | ModifierMask.RightShift)) != 0;
+        bool isMeta = (mask & (ModifierMask.LeftMeta | ModifierMask.RightMeta)) != 0;
+
+        return isCtrl == hotkey.Ctrl &&
+               isAlt == hotkey.Alt &&
+               isShift == hotkey.Shift &&
+               isMeta == hotkey.Meta;
+    }
+
+    private static ParsedHotkey? ParseHotkey(string? hotkey)
+    {
+        if (string.IsNullOrWhiteSpace(hotkey)) return null;
+
+        var parts = hotkey.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0) return null;
+
+        bool ctrl = false;
+        bool alt = false;
+        bool shift = false;
+        bool meta = false;
+        string? keyPart = null;
+
+        foreach (var part in parts)
+        {
+            var lower = part.ToLowerInvariant();
+            if (lower is "ctrl" or "control")
+            {
+                ctrl = true;
+            }
+            else if (lower is "alt" or "opt" or "option")
+            {
+                alt = true;
+            }
+            else if (lower is "shift")
+            {
+                shift = true;
+            }
+            else if (lower is "super" or "win" or "windows" or "meta")
+            {
+                meta = true;
+            }
+            else
+            {
+                keyPart = part;
+            }
+        }
+
+        if (string.IsNullOrEmpty(keyPart)) return null;
+
+        var (keyCode, gnomeKey) = MapKeyPart(keyPart);
+        if (keyCode == KeyCode.VcUndefined) return null;
+
+        var gnomeBinding = new StringBuilder();
+        if (ctrl) gnomeBinding.Append("<Control>");
+        if (alt) gnomeBinding.Append("<Alt>");
+        if (shift) gnomeBinding.Append("<Shift>");
+        if (meta) gnomeBinding.Append("<Super>");
+        gnomeBinding.Append(gnomeKey);
+
+        return new ParsedHotkey(hotkey, ctrl, alt, shift, meta, keyCode, gnomeBinding.ToString());
+    }
+
+    private static (KeyCode KeyCode, string GnomeKey) MapKeyPart(string part)
+    {
+        var lower = part.ToLowerInvariant();
+        return lower switch
+        {
+            "space" => (KeyCode.VcSpace, "space"),
+            "," or "comma" => (KeyCode.VcComma, "comma"),
+            "." or "period" => (KeyCode.VcPeriod, "period"),
+            "/" or "slash" => (KeyCode.VcSlash, "slash"),
+            "\\" or "backslash" => (KeyCode.VcBackslash, "backslash"),
+            "-" or "minus" => (KeyCode.VcMinus, "minus"),
+            "=" or "equals" or "equal" => (KeyCode.VcEquals, "equal"),
+            "[" or "openbracket" => (KeyCode.VcOpenBracket, "bracketleft"),
+            "]" or "closebracket" => (KeyCode.VcCloseBracket, "bracketright"),
+            "'" or "quote" => (KeyCode.VcQuote, "apostrophe"),
+            "`" or "backquote" or "grave" => (KeyCode.VcBackQuote, "grave"),
+            ";" or "semicolon" => (KeyCode.VcSemicolon, "semicolon"),
+            "tab" => (KeyCode.VcTab, "Tab"),
+            "enter" or "return" => (KeyCode.VcEnter, "Return"),
+            "esc" or "escape" => (KeyCode.VcEscape, "Escape"),
+            "backspace" => (KeyCode.VcBackspace, "BackSpace"),
+            _ => MapAlphaNumericOrFunction(part)
+        };
+    }
+
+    private static (KeyCode KeyCode, string GnomeKey) MapAlphaNumericOrFunction(string part)
+    {
+        var upper = part.ToUpperInvariant();
+        var lower = part.ToLowerInvariant();
+
+        if (System.Text.RegularExpressions.Regex.IsMatch(upper, @"^F\d{1,2}$"))
+        {
+            if (Enum.TryParse<KeyCode>("Vc" + upper, out var fKey))
+            {
+                return (fKey, upper);
+            }
+        }
+
+        if (part.Length == 1 && char.IsAsciiDigit(part[0]))
+        {
+            if (Enum.TryParse<KeyCode>("Vc" + part, out var dKey))
+            {
+                return (dKey, part);
+            }
+        }
+
+        if (part.Length == 1 && char.IsAsciiLetter(part[0]))
+        {
+            if (Enum.TryParse<KeyCode>("Vc" + char.ToUpperInvariant(part[0]), out var aKey))
+            {
+                return (aKey, lower);
+            }
+        }
+
+        return (KeyCode.VcUndefined, lower);
+    }
+
     public void Dispose()
     {
         if (_isDisposed) return;
@@ -554,4 +658,14 @@ public sealed class LinuxInputHook : IGlobalInputHook
             _clipboardService.Dispose();
         }
     }
+
+    private sealed record ParsedHotkey(
+        string Raw,
+        bool Ctrl,
+        bool Alt,
+        bool Shift,
+        bool Meta,
+        KeyCode KeyCode,
+        string GnomeBinding
+    );
 }

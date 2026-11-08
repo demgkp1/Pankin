@@ -26,16 +26,12 @@ public partial class App : Application
     private ClipboardWindow? _clipboardWindow;
     private SuperPanelWindow? _superPanelWindow;
     private SettingsWindow? _settingsWindow;
-    private GestureOverlayWindow? _gestureOverlayWindow;
 
     private MainViewModel? _mainVm;
     private ClipboardViewModel? _clipboardVm;
     private SuperPanelViewModel? _superPanelVm;
     private SettingsViewModel? _settingsVm;
 
-    private readonly EventSimulator _simulator = new();
-    private long _lastCtrlUpTimeMs;
-    private bool _ctrlPressedSolo;
     private long _lastWindowActionMs;
 
     public override void Initialize()
@@ -79,17 +75,40 @@ public partial class App : Application
                 Icon = appIcon
             };
 
-            _gestureOverlayWindow = new GestureOverlayWindow();
-
             desktop.MainWindow = _mainWindow;
+
+            // 应用全局外观设置
+            ApplyAppearance(DesktopAppContext.Instance.SettingsStore.Current.General);
+            DesktopAppContext.Instance.SettingsStore.Changed += (_, s) =>
+            {
+                Dispatcher.UIThread.Post(() => ApplyAppearance(s.General));
+            };
+            this.ActualThemeVariantChanged += (_, _) => ApplyAppearance(DesktopAppContext.Instance.SettingsStore.Current.General);
 
             // 联动窗口关闭/隐藏与跨窗口呼出事件
             _mainVm.RequestHideWindow += () => _mainWindow.Hide();
-            _mainVm.RequestOpenClipboard += () => ToggleClipboardWindow();
-            _mainVm.RequestOpenSettings += tabIndex => ShowSettings(tabIndex);
-            _mainVm.RequestOpenSuperPanel += (text, mode) => ShowSuperPanel(text, mode: mode);
+            _mainVm.RequestOpenClipboard += () => ToggleClipboardWindow(bypassThrottle: true);
+            _mainVm.RequestOpenSettings += tabIndex => ShowSettings(tabIndex, bypassThrottle: true);
+            _mainVm.RequestOpenSuperPanel += (text, mode) => ShowSuperPanel(text, mode: mode, bypassThrottle: true);
 
             _clipboardVm.RequestHideWindow += () => _clipboardWindow.Hide();
+            _clipboardVm.RequestSendToLauncher += text =>
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_mainVm != null) _mainVm.SearchQuery = text;
+                    if (_mainWindow != null && !_mainWindow.IsVisible)
+                    {
+                        ToggleMainWindow(bypassThrottle: true);
+                    }
+                    else
+                    {
+                        _mainWindow?.Activate();
+                        _mainWindow?.FocusSearchInput();
+                    }
+                });
+            };
+
             _superPanelVm.RequestHideWindow += () => _superPanelWindow.Hide();
             _superPanelVm.RequestOpenRename += files => ShowRenameWindow(files);
 
@@ -118,11 +137,61 @@ public partial class App : Application
             }
             else
             {
+                ApplySavedMainWindowPosition();
                 _mainWindow.Show();
             }
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    public static void ApplyAppearance(Pankin.Core.Settings.GeneralSettings general)
+    {
+        if (Current == null) return;
+
+        // 1. Theme Variant
+        Current.RequestedThemeVariant = general.Theme switch
+        {
+            Pankin.Core.Settings.ThemeMode.Light => Avalonia.Styling.ThemeVariant.Light,
+            Pankin.Core.Settings.ThemeMode.Dark => Avalonia.Styling.ThemeVariant.Dark,
+            _ => Avalonia.Styling.ThemeVariant.Default
+        };
+
+        bool isLight = general.Theme == Pankin.Core.Settings.ThemeMode.Light || (general.Theme == Pankin.Core.Settings.ThemeMode.System && Current.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Light);
+
+        // 2. Opacity
+        byte alpha = (byte)Math.Clamp((int)Math.Round(general.PanelOpacity * 255.0), 102, 255);
+        byte r = isLight ? (byte)251 : (byte)20;
+        byte g = isLight ? (byte)251 : (byte)20;
+        byte b = isLight ? (byte)252 : (byte)23;
+        var surfaceBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromArgb(alpha, r, g, b));
+        Current.Resources["Pk.Surface"] = surfaceBrush;
+
+        // 3. Accent Color
+        if (Avalonia.Media.Color.TryParse(general.AccentColor, out var accentColor))
+        {
+            var accentBrush = new Avalonia.Media.SolidColorBrush(accentColor);
+            Current.Resources["Pk.Accent"] = accentBrush;
+
+            byte strongR = (byte)Math.Max(0, accentColor.R * 0.85);
+            byte strongG = (byte)Math.Max(0, accentColor.G * 0.85);
+            byte strongB = (byte)Math.Max(0, accentColor.B * 0.85);
+            Current.Resources["Pk.AccentStrong"] = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromArgb(255, strongR, strongG, strongB));
+
+            Current.Resources["Pk.AccentSoft"] = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromArgb(0x2B, accentColor.R, accentColor.G, accentColor.B));
+            Current.Resources["Pk.AccentSofter"] = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromArgb(0x17, accentColor.R, accentColor.G, accentColor.B));
+
+            byte textR = isLight ? (byte)Math.Max(0, accentColor.R * 0.75) : (byte)Math.Min(255, accentColor.R * 1.3);
+            byte textG = isLight ? (byte)Math.Max(0, accentColor.G * 0.75) : (byte)Math.Min(255, accentColor.G * 1.3);
+            byte textB = isLight ? (byte)Math.Max(0, accentColor.B * 0.75) : (byte)Math.Min(255, accentColor.B * 1.3);
+            Current.Resources["Pk.AccentText"] = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromArgb(255, textR, textG, textB));
+        }
+
+        // 4. Panel Radius
+        if (general.PanelRadius > 0)
+        {
+            Current.Resources["Pk.Radius.Window"] = new CornerRadius(general.PanelRadius);
+        }
     }
 
     private async Task InitializeDesktopContextAsync()
@@ -151,61 +220,37 @@ public partial class App : Application
     private void RegisterGlobalWindowKeyHandlers()
     {
         InputElement.KeyDownEvent.AddClassHandler<Window>(OnAnyWindowKeyDown, RoutingStrategies.Tunnel);
-        InputElement.KeyUpEvent.AddClassHandler<Window>(OnAnyWindowKeyUp, RoutingStrategies.Tunnel);
     }
 
     private void OnAnyWindowKeyDown(Window window, KeyEventArgs e)
     {
-        bool isCtrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        if (window is SettingsWindow && _settingsVm is { RecordingTarget: not null }) return;
+
+        var s = DesktopAppContext.Instance.SettingsStore.Current;
+        var modules = s.Modules;
+
+        if (modules.Launcher && MatchesAvaloniaKey(e, s.Launcher.Hotkey))
+        {
+            ToggleMainWindow();
+            e.Handled = true;
+            return;
+        }
+
+        if (modules.Clipboard && MatchesAvaloniaKey(e, s.Clipboard.Hotkey))
+        {
+            ToggleClipboardWindow();
+            e.Handled = true;
+            return;
+        }
+
+        if (modules.SuperPanel && MatchesAvaloniaKey(e, s.SuperPanel.Hotkey))
+        {
+            ShowSuperPanel();
+            e.Handled = true;
+            return;
+        }
+
         bool isAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-        bool isShift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
-
-        // 如果按下了除 Ctrl 以外的任何键，则本次 Ctrl 单独敲击作废
-        if (e.Key != Key.LeftCtrl && e.Key != Key.RightCtrl)
-        {
-            _ctrlPressedSolo = false;
-        }
-        else
-        {
-            _ctrlPressedSolo = true;
-        }
-
-        var modules = DesktopAppContext.Instance.SettingsStore.Current.Modules;
-
-        // Ctrl+Space 或 Alt+Space -> 主启动器
-        if ((isCtrl && e.Key == Key.Space) || (isAlt && e.Key == Key.Space))
-        {
-            if (modules.Launcher)
-            {
-                ToggleMainWindow();
-                e.Handled = true;
-                return;
-            }
-        }
-
-        // Alt+V 或 Ctrl+Shift+V -> 剪贴板历史
-        if ((isAlt && e.Key == Key.V) || (isCtrl && isShift && e.Key == Key.V))
-        {
-            if (modules.Clipboard)
-            {
-                ToggleClipboardWindow();
-                e.Handled = true;
-                return;
-            }
-        }
-
-        // Alt+S -> 超级面板
-        if (isAlt && e.Key == Key.S)
-        {
-            if (modules.SuperPanel)
-            {
-                ShowSuperPanel();
-                e.Handled = true;
-                return;
-            }
-        }
-
-        // Alt+, (Key.OemComma) -> 设置
         if (isAlt && (e.Key == Key.OemComma || e.Key == Key.OemPeriod))
         {
             ShowSettings();
@@ -214,44 +259,55 @@ public partial class App : Application
         }
     }
 
-    private void OnAnyWindowKeyUp(Window window, KeyEventArgs e)
+    private static bool MatchesAvaloniaKey(KeyEventArgs e, string? hotkey)
     {
-        if (e.Key == Key.LeftCtrl || e.Key == Key.RightCtrl)
+        if (string.IsNullOrWhiteSpace(hotkey)) return false;
+        var parts = hotkey.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        bool reqCtrl = false, reqAlt = false, reqShift = false, reqMeta = false;
+        string? mainKey = null;
+
+        foreach (var p in parts)
         {
-            if (_ctrlPressedSolo)
-            {
-                long now = Environment.TickCount64;
-                long diff = now - _lastCtrlUpTimeMs;
-                if (diff is > 50 and <= 420)
-                {
-                    _lastCtrlUpTimeMs = 0;
-                    _ctrlPressedSolo = false;
-                    var settings = DesktopAppContext.Instance.SettingsStore.Current;
-                    if (settings.Modules.Launcher && settings.Launcher.DoubleTapCtrl)
-                    {
-                        ToggleMainWindow();
-                        e.Handled = true;
-                        return;
-                    }
-                }
-                _lastCtrlUpTimeMs = now;
-            }
+            var l = p.ToLowerInvariant();
+            if (l is "ctrl" or "control") reqCtrl = true;
+            else if (l is "alt" or "option") reqAlt = true;
+            else if (l is "shift") reqShift = true;
+            else if (l is "super" or "win" or "meta") reqMeta = true;
+            else mainKey = p;
         }
+
+        bool isCtrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        bool isAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+        bool isShift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        bool isMeta = e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+
+        if (isCtrl != reqCtrl || isAlt != reqAlt || isShift != reqShift || isMeta != reqMeta)
+            return false;
+
+        if (string.IsNullOrEmpty(mainKey)) return false;
+
+        if (string.Equals(mainKey, "space", StringComparison.OrdinalIgnoreCase))
+            return e.Key == Key.Space;
+
+        if (Enum.TryParse<Key>(mainKey, true, out var parsedKey))
+            return e.Key == parsedKey;
+
+        return false;
     }
 
     private void SetupTrayIcon(IClassicDesktopStyleApplicationLifetime desktop, WindowIcon appIcon)
     {
         var menu = new NativeMenu();
 
-        var itemLauncher = new NativeMenuItem("主启动器 (Alt+Space)");
+        var itemLauncher = new NativeMenuItem("主启动器");
         itemLauncher.Click += (_, _) => ToggleMainWindow();
         menu.Add(itemLauncher);
 
-        var itemClipboard = new NativeMenuItem("剪贴板历史 (Alt+V)");
+        var itemClipboard = new NativeMenuItem("剪贴板历史");
         itemClipboard.Click += (_, _) => ToggleClipboardWindow();
         menu.Add(itemClipboard);
 
-        var itemSuper = new NativeMenuItem("超级面板 & AI 对话 (Alt+S)");
+        var itemSuper = new NativeMenuItem("超级面板 & AI 对话");
         itemSuper.Click += (_, _) => ShowSuperPanel();
         menu.Add(itemSuper);
 
@@ -355,33 +411,6 @@ public partial class App : Application
             }
         };
 
-        hook.GestureProgress += (_, e) =>
-        {
-            if (!DesktopAppContext.Instance.SettingsStore.Current.Modules.Gestures) return;
-            if (!DesktopAppContext.Instance.SettingsStore.Current.Gestures.ShowTrail) return;
-
-            if (!e.IsActive)
-            {
-                _gestureOverlayWindow?.HideOverlay();
-                return;
-            }
-
-            string action = GetGestureActionName(e.CurrentDirection);
-            _gestureOverlayWindow?.UpdateProgress(e.CurrentX, e.CurrentY, e.CurrentDirection, action, e.Trajectory);
-        };
-
-        hook.GestureRecognized += (_, e) =>
-        {
-            _gestureOverlayWindow?.HideOverlay();
-            if (!DesktopAppContext.Instance.SettingsStore.Current.Modules.Gestures) return;
-
-            if (e.GestureDirection == "Hold" || !string.IsNullOrEmpty(e.GestureDirection))
-            {
-                string targetAction = GetGestureActionName(e.GestureDirection);
-                ExecuteGestureAction(targetAction, e.EndX, e.EndY);
-            }
-        };
-
         hook.SelectionTriggered += (_, e) =>
         {
             var settings = DesktopAppContext.Instance.SettingsStore.Current;
@@ -410,111 +439,23 @@ public partial class App : Application
         };
     }
 
-    private static string GetGestureActionName(string direction)
+    private void ApplySavedMainWindowPosition()
     {
-        var bindings = DesktopAppContext.Instance.SettingsStore.Current.Gestures.Bindings;
-        foreach (var b in bindings)
+        if (_mainWindow == null) return;
+        var general = DesktopAppContext.Instance.SettingsStore.Current.General;
+        if (general.RememberWindowPosition &&
+            general.LauncherPositionX.HasValue &&
+            general.LauncherPositionY.HasValue)
         {
-            if (string.Equals(b.Direction, direction, StringComparison.OrdinalIgnoreCase))
-            {
-                return b.Action;
-            }
-        }
-
-        return direction switch
-        {
-            "L" => "后退 (Alt+Left)",
-            "R" => "前进 (Alt+Right)",
-            "U" => "回到顶部 (Home)",
-            "D" => "到底部 (End)",
-            "DR" => "关闭标签页 (Ctrl+W)",
-            "UL" => "呼出启动器",
-            "UR" => "呼出剪贴板",
-            "Hold" => "呼出超级面板",
-            _ => "无动作"
-        };
-    }
-
-    private void ExecuteGestureAction(string action, double endX, double endY)
-    {
-        if (string.IsNullOrWhiteSpace(action) || action == "无动作") return;
-
-        if (action.Contains("启动器"))
-        {
-            ToggleMainWindow();
-        }
-        else if (action.Contains("剪贴板"))
-        {
-            ToggleClipboardWindow();
-        }
-        else if (action.Contains("超级面板"))
-        {
-            ShowSuperPanel(x: endX, y: endY);
-        }
-        else if (action.Contains("设置"))
-        {
-            ShowSettings();
-        }
-        else if (action.Contains("锁定屏幕"))
-        {
-            try
-            {
-                Process.Start(new ProcessStartInfo("loginctl", "lock-session") { UseShellExecute = false, CreateNoWindow = true });
-            }
-            catch { }
-        }
-        else
-        {
-            SimulateShortcut(action);
+            _mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
+            _mainWindow.Position = new PixelPoint(general.LauncherPositionX.Value, general.LauncherPositionY.Value);
         }
     }
 
-    private void SimulateShortcut(string action)
-    {
-        try
-        {
-            if (action.Contains("Alt+Left"))
-            {
-                _simulator.SimulateKeyPress(KeyCode.VcLeftAlt);
-                _simulator.SimulateKeyPress(KeyCode.VcLeft);
-                _simulator.SimulateKeyRelease(KeyCode.VcLeft);
-                _simulator.SimulateKeyRelease(KeyCode.VcLeftAlt);
-            }
-            else if (action.Contains("Alt+Right"))
-            {
-                _simulator.SimulateKeyPress(KeyCode.VcLeftAlt);
-                _simulator.SimulateKeyPress(KeyCode.VcRight);
-                _simulator.SimulateKeyRelease(KeyCode.VcRight);
-                _simulator.SimulateKeyRelease(KeyCode.VcLeftAlt);
-            }
-            else if (action.Contains("Home"))
-            {
-                _simulator.SimulateKeyPress(KeyCode.VcHome);
-                _simulator.SimulateKeyRelease(KeyCode.VcHome);
-            }
-            else if (action.Contains("End"))
-            {
-                _simulator.SimulateKeyPress(KeyCode.VcEnd);
-                _simulator.SimulateKeyRelease(KeyCode.VcEnd);
-            }
-            else if (action.Contains("Ctrl+W"))
-            {
-                _simulator.SimulateKeyPress(KeyCode.VcLeftControl);
-                _simulator.SimulateKeyPress(KeyCode.VcW);
-                _simulator.SimulateKeyRelease(KeyCode.VcW);
-                _simulator.SimulateKeyRelease(KeyCode.VcLeftControl);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"[App] Failed to simulate gesture key '{action}': {ex.Message}");
-        }
-    }
-
-    public void ToggleMainWindow()
+    public void ToggleMainWindow(bool bypassThrottle = false)
     {
         long now = Environment.TickCount64;
-        if (now - _lastWindowActionMs < 320) return;
+        if (!bypassThrottle && now - _lastWindowActionMs < 320) return;
         _lastWindowActionMs = now;
 
         Dispatcher.UIThread.Post(() =>
@@ -529,6 +470,8 @@ public partial class App : Application
                 _clipboardWindow?.Hide();
                 _superPanelWindow?.Hide();
 
+                ApplySavedMainWindowPosition();
+
                 _mainWindow.Show();
                 _mainWindow.Topmost = false;
                 _mainWindow.Topmost = true;
@@ -538,10 +481,10 @@ public partial class App : Application
         });
     }
 
-    public void ToggleClipboardWindow()
+    public void ToggleClipboardWindow(bool bypassThrottle = false)
     {
         long now = Environment.TickCount64;
-        if (now - _lastWindowActionMs < 320) return;
+        if (!bypassThrottle && now - _lastWindowActionMs < 320) return;
         _lastWindowActionMs = now;
 
         Dispatcher.UIThread.Post(() =>
@@ -566,39 +509,61 @@ public partial class App : Application
         });
     }
 
-    public void ShowSuperPanel(string? text = null, double? x = null, double? y = null, string mode = "translate", SelectionContext? context = null)
+    public void ShowSuperPanel(string? text = null, double? x = null, double? y = null, string mode = "translate", SelectionContext? context = null, bool bypassThrottle = false)
     {
         long now = Environment.TickCount64;
-        if (now - _lastWindowActionMs < 280) return;
+        if (!bypassThrottle && now - _lastWindowActionMs < 280) return;
         _lastWindowActionMs = now;
 
-        Dispatcher.UIThread.Post(() =>
+        _ = Task.Run(async () =>
         {
-            if (_superPanelWindow == null) return;
-            _mainWindow?.Hide();
-            _clipboardWindow?.Hide();
+            string? resolvedText = text;
+            if (context == null && string.IsNullOrWhiteSpace(resolvedText))
+            {
+                try
+                {
+                    var clipService = DesktopAppContext.Instance.ClipboardService;
+                    resolvedText = await clipService.GetPrimarySelectionTextAsync().ConfigureAwait(false);
+                    if (string.IsNullOrWhiteSpace(resolvedText) &&
+                        DesktopAppContext.Instance.SettingsStore.Current.SuperPanel.ClipboardFallback)
+                    {
+                        resolvedText = await clipService.GetTextAsync().ConfigureAwait(false);
+                    }
+                }
+                catch
+                {
+                    // Ignore
+                }
+            }
 
-            var ctx = context ?? new SelectionContext(
-                Text: text,
-                Files: null,
-                SourceAppName: null,
-                WindowTitle: null,
-                PointerX: x ?? (_mainWindow != null ? _mainWindow.Position.X + 120 : 400),
-                PointerY: y ?? (_mainWindow != null ? _mainWindow.Position.Y + 80 : 300),
-                Timestamp: DateTime.UtcNow,
-                Failure: string.IsNullOrWhiteSpace(text) ? SelectionFailure.Empty : SelectionFailure.None);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (_superPanelWindow == null) return;
+                _mainWindow?.Hide();
+                _clipboardWindow?.Hide();
 
-            _superPanelWindow.ShowNearPointer(ctx, mode);
-            _superPanelWindow.Topmost = false;
-            _superPanelWindow.Topmost = true;
-            _superPanelWindow.Activate();
+                var ctx = context ?? new SelectionContext(
+                    Text: resolvedText,
+                    Files: null,
+                    SourceAppName: null,
+                    WindowTitle: null,
+                    PointerX: x ?? (_mainWindow != null ? _mainWindow.Position.X + 120 : 400),
+                    PointerY: y ?? (_mainWindow != null ? _mainWindow.Position.Y + 80 : 300),
+                    Timestamp: DateTime.UtcNow,
+                    Failure: string.IsNullOrWhiteSpace(resolvedText) ? SelectionFailure.Empty : SelectionFailure.None);
+
+                _superPanelWindow.ShowNearPointer(ctx, mode);
+                _superPanelWindow.Topmost = false;
+                _superPanelWindow.Topmost = true;
+                _superPanelWindow.Activate();
+            });
         });
     }
 
-    public void ShowSettings(int tabIndex = 0)
+    public void ShowSettings(int tabIndex = 0, bool bypassThrottle = false)
     {
         long now = Environment.TickCount64;
-        if (now - _lastWindowActionMs < 320) return;
+        if (!bypassThrottle && now - _lastWindowActionMs < 320) return;
         _lastWindowActionMs = now;
 
         Dispatcher.UIThread.Post(() =>

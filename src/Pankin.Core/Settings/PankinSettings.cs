@@ -10,8 +10,13 @@ public enum ThemeMode
 public sealed record GeneralSettings
 {
     public ThemeMode Theme { get; init; } = ThemeMode.Dark;
-    public string AccentColor { get; init; } = "#5874C9";
-    public double PanelRadius { get; init; } = 20.0;
+    public string AccentColor { get; init; } = "#8B8DFF";
+    public double PanelRadius { get; init; } = 16.0;
+    public double PanelOpacity { get; init; } = 0.94;
+    public bool HideOnDeactivate { get; init; } = true;
+    public bool RememberWindowPosition { get; init; } = true;
+    public int? LauncherPositionX { get; init; }
+    public int? LauncherPositionY { get; init; }
     public bool StartAtLogin { get; init; } = false;
     public bool ShowTrayIcon { get; init; } = true;
     public string? UiLanguage { get; init; } = "system";
@@ -91,6 +96,7 @@ public sealed record GestureSettings
 
 public sealed record SuperPanelSettings
 {
+    public string Hotkey { get; init; } = "Alt+S";
     public bool Enabled { get; init; } = true;
     public string TriggerButton { get; init; } = "Side";
     public int HoldDurationMs { get; init; } = 260;

@@ -139,6 +139,8 @@ public sealed class PowerTimerSource : LauncherSource
     public override Task<IReadOnlyList<LauncherItem>> SearchAsync(SourceContext context, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
+        if (!context.FullSettings.Modules.PowerTimer) return Rows([]);
+
         var timer = _provider();
         if (timer == null) return Rows([]);
 

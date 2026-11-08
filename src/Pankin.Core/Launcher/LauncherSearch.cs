@@ -36,6 +36,44 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
     public ITerminalHistory TerminalHistory => _terminalService.History;
     public IReadOnlyList<AppEntry> CachedApps => _cachedApps;
 
+    public event EventHandler? UsageChanged;
+
+    public IReadOnlyList<AppEntry> GetRecentApps(int maxCount = 14)
+    {
+        IReadOnlyList<AppEntry> apps;
+        Dictionary<string, AppUsage> usageCopy;
+        lock (_lock)
+        {
+            apps = _cachedApps;
+            usageCopy = new Dictionary<string, AppUsage>(_usage, StringComparer.OrdinalIgnoreCase);
+        }
+
+        if (apps.Count == 0)
+        {
+            apps = _appScanner.SearchApps(string.Empty, Math.Max(maxCount, 30));
+        }
+
+        return apps
+            .Select((app, idx) =>
+            {
+                bool hasUsage = usageCopy.TryGetValue(app.Id, out var u) && u.Count > 0;
+                return (
+                    App: app,
+                    HasUsage: hasUsage,
+                    LastUsed: hasUsage ? u!.LastUsed : DateTimeOffset.MinValue,
+                    Count: hasUsage ? u!.Count : 0,
+                    Index: idx
+                );
+            })
+            .OrderByDescending(x => x.HasUsage)
+            .ThenByDescending(x => x.LastUsed)
+            .ThenByDescending(x => x.Count)
+            .ThenBy(x => x.Index)
+            .Take(maxCount)
+            .Select(x => x.App)
+            .ToList();
+    }
+
     public LauncherSearch(
         IAppScanner appScanner,
         IFileSearcher fileSearcher,
@@ -121,6 +159,7 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
             _usage[id] = new AppUsage(newCount, _clock.GetUtcNow());
             SaveUsage();
         }
+        UsageChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public Task RefreshAppsAsync(CancellationToken ct = default)
@@ -138,6 +177,7 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
                     {
                         _cachedApps = deduped;
                     }
+                    UsageChanged?.Invoke(this, EventArgs.Empty);
                 }
                 catch
                 {
@@ -208,15 +248,15 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
 
         var context = BuildContext(query);
 
-        // 快慢来源分离：本地轻量来源立即返回，远程/磁盘大扫描异步返回
-        var fastSources = _sources.Where(s => s is not FileSource).ToArray();
-        var slowSources = _sources.Where(s => s is FileSource).ToArray();
+        // 快慢来源分离：本地轻量来源立即返回，远程/磁盘大扫描异步返回，并按 Order 严格归并确保目录与文件优先于网页搜索
+        var fastSources = _sources.Where(s => s is not FileSource).OrderBy(s => s.Order).ToArray();
+        var slowSources = _sources.Where(s => s is FileSource).OrderBy(s => s.Order).ToArray();
 
-        var fastTasks = fastSources.Select(s => SearchSourceSafelyAsync(s, context, cancellationToken)).ToArray();
-        var fastGroups = await Task.WhenAll(fastTasks).ConfigureAwait(false);
+        var fastTasks = fastSources.Select(async s => (s.Order, Items: await SearchSourceSafelyAsync(s, context, cancellationToken).ConfigureAwait(false))).ToArray();
+        var fastResults = await Task.WhenAll(fastTasks).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var fastItems = fastGroups.SelectMany(g => g).ToList();
+        var fastItems = fastResults.OrderBy(r => r.Order).SelectMany(r => r.Items).ToList();
         if (fastItems.Count > 0 || context.Query.Length == 0)
         {
             partial(new LauncherResult(fastItems, context.Query.Length == 0, 0));
@@ -227,11 +267,15 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
             return new LauncherResult(fastItems, context.Query.Length == 0, 0);
         }
 
-        var slowTasks = slowSources.Select(s => SearchSourceSafelyAsync(s, context, cancellationToken)).ToArray();
-        var slowGroups = await Task.WhenAll(slowTasks).ConfigureAwait(false);
+        var slowTasks = slowSources.Select(async s => (s.Order, Items: await SearchSourceSafelyAsync(s, context, cancellationToken).ConfigureAwait(false))).ToArray();
+        var slowResults = await Task.WhenAll(slowTasks).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var allItems = fastItems.Concat(slowGroups.SelectMany(g => g)).ToList();
+        var allItems = fastResults
+            .Concat(slowResults)
+            .OrderBy(r => r.Order)
+            .SelectMany(r => r.Items)
+            .ToList();
         int fileCount = allItems.Count(i => i.Kind is LauncherItemKind.File or LauncherItemKind.Folder);
 
         var finalResult = new LauncherResult(allItems, context.Query.Length == 0, fileCount);

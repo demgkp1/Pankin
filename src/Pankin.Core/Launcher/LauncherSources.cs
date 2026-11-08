@@ -200,6 +200,7 @@ public sealed class FileSource : LauncherSource
             return Array.Empty<LauncherItem>();
 
         var limit = Limit(context);
+        var fetchLimit = limit * 3;
         var results = new List<LauncherItem>();
 
         try
@@ -207,7 +208,7 @@ public sealed class FileSource : LauncherSource
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
             timeoutCts.CancelAfter(Timeout);
 
-            await foreach (var file in _fileSearcher.SearchFilesAsync(context.Query, limit, timeoutCts.Token).ConfigureAwait(false))
+            await foreach (var file in _fileSearcher.SearchFilesAsync(context.Query, fetchLimit, timeoutCts.Token).ConfigureAwait(false))
             {
                 var kind = file.IsDirectory ? LauncherItemKind.Folder : LauncherItemKind.File;
                 var glyph = file.IsDirectory ? "folder" : "file";
@@ -221,7 +222,7 @@ public sealed class FileSource : LauncherSource
                     new LauncherIcon(glyph),
                     Score: 50));
 
-                if (results.Count >= limit) break;
+                if (results.Count >= fetchLimit) break;
             }
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested)
@@ -233,7 +234,14 @@ public sealed class FileSource : LauncherSource
             // 忽略检索异常
         }
 
-        return results;
+        var query = context.Query;
+        return results
+            .OrderByDescending(i => i.Kind == LauncherItemKind.Folder)
+            .ThenByDescending(i => i.Title.Equals(query, StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(i => i.Title.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+            .ThenBy(i => i.Title.Length)
+            .Take(limit)
+            .ToList();
     }
 
     public override Task ExecuteAsync(LauncherItem item, SourceContext context, CancellationToken token)
@@ -324,6 +332,7 @@ public sealed class WebSource : LauncherSource
         new("bing", "Bing", "https://www.bing.com/search?q={query}"),
         new("baidu", "Baidu", "https://www.baidu.com/s?wd={query}"),
         new("google", "Google", "https://www.google.com/search?q={query}"),
+        new("duckduckgo", "DuckDuckGo", "https://duckduckgo.com/?q={query}"),
         new("gh", "GitHub", "https://github.com/search?q={query}")
     ];
 

@@ -49,9 +49,20 @@ public sealed class LinuxLauncherActionHost : ILauncherActionHost
 
                 if (elevated && !isUrl)
                 {
-                    psi.FileName = "pkexec";
-                    psi.ArgumentList.Add("xdg-open");
-                    psi.ArgumentList.Add(pathOrUrl);
+                    if (!File.Exists(pathOrUrl) && !Directory.Exists(pathOrUrl))
+                    {
+                        var cleanCommand = StripDesktopFieldCodes(pathOrUrl);
+                        psi.FileName = "pkexec";
+                        psi.ArgumentList.Add("/bin/sh");
+                        psi.ArgumentList.Add("-c");
+                        psi.ArgumentList.Add(cleanCommand);
+                    }
+                    else
+                    {
+                        psi.FileName = "pkexec";
+                        psi.ArgumentList.Add("xdg-open");
+                        psi.ArgumentList.Add(pathOrUrl);
+                    }
                 }
                 else
                 {
@@ -86,23 +97,34 @@ public sealed class LinuxLauncherActionHost : ILauncherActionHost
                 {
                     if (IsCommandAvailable("nautilus"))
                     {
-                        using var proc = Process.Start(new ProcessStartInfo("nautilus", $"--select \"{path}\"") { UseShellExecute = false, CreateNoWindow = true });
+                        var psi = new ProcessStartInfo("nautilus") { UseShellExecute = false, CreateNoWindow = true };
+                        psi.ArgumentList.Add("--select");
+                        psi.ArgumentList.Add(path);
+                        using var proc = Process.Start(psi);
                         if (proc != null) return true;
                     }
                     else if (IsCommandAvailable("dolphin"))
                     {
-                        using var proc = Process.Start(new ProcessStartInfo("dolphin", $"--select \"{path}\"") { UseShellExecute = false, CreateNoWindow = true });
+                        var psi = new ProcessStartInfo("dolphin") { UseShellExecute = false, CreateNoWindow = true };
+                        psi.ArgumentList.Add("--select");
+                        psi.ArgumentList.Add(path);
+                        using var proc = Process.Start(psi);
                         if (proc != null) return true;
                     }
                     else if (IsCommandAvailable("nemo"))
                     {
-                        using var proc = Process.Start(new ProcessStartInfo("nemo", $"--no-desktop \"{path}\"") { UseShellExecute = false, CreateNoWindow = true });
+                        var psi = new ProcessStartInfo("nemo") { UseShellExecute = false, CreateNoWindow = true };
+                        psi.ArgumentList.Add("--no-desktop");
+                        psi.ArgumentList.Add(path);
+                        using var proc = Process.Start(psi);
                         if (proc != null) return true;
                     }
                 }
 
                 // 兜底直接打开所在目录
-                using var fallback = Process.Start(new ProcessStartInfo("xdg-open", $"\"{dir}\"") { UseShellExecute = false, CreateNoWindow = true });
+                var fallbackPsi = new ProcessStartInfo("xdg-open") { UseShellExecute = false, CreateNoWindow = true };
+                fallbackPsi.ArgumentList.Add(dir);
+                using var fallback = Process.Start(fallbackPsi);
                 return fallback != null;
             }
             catch
@@ -278,7 +300,7 @@ public sealed class LinuxLauncherActionHost : ILauncherActionHost
                     "restart" => "systemctl reboot",
                     "shutdown" => "systemctl poweroff",
                     "logout" or "logoff" => "loginctl terminate-session self || gnome-session-quit --logout --no-prompt",
-                    "recycle" or "trash" => "rm -rf ~/.local/share/Trash/files/* ~/.local/share/Trash/info/*",
+                    "recycle" or "trash" => "gio trash --empty 2>/dev/null || rm -rf ~/.local/share/Trash/files/* ~/.local/share/Trash/info/*",
                     _ => string.Empty
                 };
 
@@ -330,5 +352,12 @@ public sealed class LinuxLauncherActionHost : ILauncherActionHost
             if (File.Exists(fullPath)) return true;
         }
         return false;
+    }
+
+    private static string StripDesktopFieldCodes(string command)
+    {
+        if (string.IsNullOrWhiteSpace(command)) return string.Empty;
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(command, @"%[fFuUidDnNckvm]", "");
+        return System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", " ").Trim();
     }
 }

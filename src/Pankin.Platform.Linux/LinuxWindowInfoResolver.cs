@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,17 +21,20 @@ public static class LinuxWindowInfoResolver
             return null;
         }
 
+        Process? proc1 = null;
+        Process? proc2 = null;
+
         try
         {
             // 1. 查询当前前台活跃窗口 ID
-            using var proc1 = new Process
+            proc1 = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "xprop",
                     ArgumentList = { "-root", "_NET_ACTIVE_WINDOW" },
                     RedirectStandardOutput = true,
-                    RedirectStandardError = true,
+                    RedirectStandardError = false,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 }
@@ -50,14 +54,14 @@ public static class LinuxWindowInfoResolver
             if (string.IsNullOrEmpty(winId) || winId == "0x0") return null;
 
             // 2. 根据窗口 ID 查询 WM_CLASS 与 _NET_WM_NAME
-            using var proc2 = new Process
+            proc2 = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "xprop",
                     ArgumentList = { "-id", winId, "WM_CLASS", "_NET_WM_NAME" },
                     RedirectStandardOutput = true,
-                    RedirectStandardError = true,
+                    RedirectStandardError = false,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 }
@@ -82,7 +86,7 @@ public static class LinuxWindowInfoResolver
                     var tokens = val.Split(new[] { ',', '"', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     if (tokens.Length > 0)
                     {
-                        appName = tokens[0];
+                        appName = string.Join(" ", tokens.Distinct(StringComparer.OrdinalIgnoreCase));
                     }
                 }
                 else if (trimmed.StartsWith("_NET_WM_NAME") && trimmed.Contains('='))
@@ -97,6 +101,19 @@ public static class LinuxWindowInfoResolver
         catch
         {
             return null;
+        }
+        finally
+        {
+            if (proc1 != null)
+            {
+                try { if (!proc1.HasExited) proc1.Kill(entireProcessTree: true); } catch { }
+                proc1.Dispose();
+            }
+            if (proc2 != null)
+            {
+                try { if (!proc2.HasExited) proc2.Kill(entireProcessTree: true); } catch { }
+                proc2.Dispose();
+            }
         }
     }
 }

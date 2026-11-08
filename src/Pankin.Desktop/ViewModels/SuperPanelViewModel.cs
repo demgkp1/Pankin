@@ -121,6 +121,7 @@ public partial class SuperPanelViewModel : ViewModelBase
         }
 
         LoadCurrentSettings();
+        _context.SettingsStore.Changed += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(LoadCurrentSettings);
     }
 
     public void LoadCurrentSettings()

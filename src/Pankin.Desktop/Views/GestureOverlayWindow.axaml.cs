@@ -23,10 +23,10 @@ public partial class GestureOverlayWindow : Window
             CodeLabel.Text = string.IsNullOrEmpty(direction) ? "..." : direction;
             ActionLabel.Text = string.IsNullOrWhiteSpace(actionText) ? "未绑定动作" : actionText;
 
-            // 智能避开屏幕边缘
-            int posX = (int)mouseX + 24;
-            int posY = (int)mouseY + 24;
-            Position = new PixelPoint(Math.Max(10, posX), Math.Max(10, posY));
+            // 智能避开屏幕边缘（扣除 12px 阴影留白，让可见胶囊精准位于鼠标旁）
+            int posX = (int)mouseX + 12;
+            int posY = (int)mouseY + 12;
+            Position = new PixelPoint(Math.Max(0, posX), Math.Max(0, posY));
 
             // 绘制轨迹线条
             if (trajectory.Count >= 2)

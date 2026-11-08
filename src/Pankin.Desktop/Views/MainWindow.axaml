@@ -4,10 +4,10 @@
         xmlns:loc="using:Pankin.Desktop.Localization"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="680" d:DesignHeight="520"
+        mc:Ignorable="d" d:DesignWidth="704" d:DesignHeight="544"
         x:Class="Pankin.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Width="680" Height="520"
+        Width="704" Height="544"
         ShowInTaskbar="False"
         SystemDecorations="None"
         Topmost="True"
@@ -19,113 +19,88 @@
         Title="{loc:Loc Launcher_Title}">
 
     <Window.Styles>
-        <Style Selector="ListBoxItem">
-            <Setter Property="Padding" Value="10,8" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Margin" Value="4,2" />
+        <!-- 结果行：选中时左侧出现强调色指示条 -->
+        <Style Selector="ListBoxItem Border.sel-bar">
+            <Setter Property="Opacity" Value="0" />
         </Style>
-        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="#253B82F6" />
+        <Style Selector="ListBoxItem:selected Border.sel-bar">
+            <Setter Property="Opacity" Value="1" />
         </Style>
-        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#15FFFFFF" />
+        <Style Selector="ListBoxItem:selected TextBlock.row-title">
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+        </Style>
+        <!-- 选中行显示 “↵” 提示 -->
+        <Style Selector="ListBoxItem Border.enter-hint">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="ListBoxItem:selected Border.enter-hint">
+            <Setter Property="IsVisible" Value="True" />
         </Style>
     </Window.Styles>
 
-    <!-- 复合磨砂玻璃底层（98.5% 不透明炭灰基底，彻底遮挡底层窗口文字） -->
-    <Border CornerRadius="{Binding PanelCornerRadius}"
-            Background="#FC1B1C22"
-            BorderBrush="#32FFFFFF"
-            BorderThickness="1"
-            BoxShadow="0 16 40 0 #66000000"
-            ClipToBounds="True">
+    <!-- 外层留白用于展示投影 -->
+    <Border Classes="frosted-panel"
+            Margin="12"
+            CornerRadius="{Binding PanelCornerRadius}">
         <Panel>
-            <!-- 叠加模拟原版 Pane-Win 磨砂漫反射柔和多点微光 -->
-            <Border CornerRadius="{Binding PanelCornerRadius}" IsHitTestVisible="False">
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                        <GradientStop Offset="0.0" Color="#1E3B5998" />
-                        <GradientStop Offset="0.5" Color="#08FFFFFF" />
-                        <GradientStop Offset="1.0" Color="#241E293B" />
-                    </LinearGradientBrush>
-                </Border.Background>
-            </Border>
+            <!-- 顶部柔和高光 -->
+            <Border Classes="sheen" CornerRadius="{Binding PanelCornerRadius}" />
 
-            <Grid RowDefinitions="Auto,*,Auto">
-                <!-- 顶部搜索栏 (高 58) -->
+            <Grid RowDefinitions="Auto,Auto,*,Auto">
+                <!-- ===== 搜索栏 ===== -->
                 <Border Grid.Row="0"
                         Name="TopDragArea"
-                        Height="58"
-                        Padding="18,0,16,0"
-                        BorderBrush="#18FFFFFF"
-                        BorderThickness="0,0,0,1">
+                        Background="Transparent"
+                        Height="64"
+                        Padding="22,0,14,0">
                     <Grid ColumnDefinitions="Auto,*,Auto">
-                        <!-- 搜索图标 (Lucide Search 矢量描边) -->
                         <Path Grid.Column="0"
                               Data="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35"
-                              Width="18" Height="18"
+                              Width="19" Height="19"
                               Stretch="Uniform"
-                              Stroke="#80FFFFFF"
-                              StrokeThickness="1.75"
+                              Stroke="{DynamicResource Pk.Accent}"
+                              StrokeThickness="2"
                               StrokeJoin="Round"
                               StrokeLineCap="Round"
-                              Fill="Transparent"
                               Margin="0,0,14,0"
                               VerticalAlignment="Center" />
 
-                        <!-- 主搜索输入框 (无边框、无蓝色焦点框) -->
                         <TextBox Grid.Column="1"
                                  Name="SearchInput"
                                  Classes="pane-search"
                                  Text="{Binding SearchQuery, Mode=TwoWay}"
                                  Watermark="{loc:Loc Launcher_SearchPlaceholder}"
-                                 FontSize="16"
-                                 Foreground="#F0FFFFFF"
-                                 CaretBrush="#3B82F6"
+                                 FontSize="18"
                                  VerticalAlignment="Center" />
 
-                        <!-- 设置胶囊按钮 (矢量齿轮) -->
                         <Button Grid.Column="2"
+                                Classes="icon-btn"
                                 Command="{Binding OpenSettingsCommand}"
-                                Background="#18FFFFFF"
-                                BorderThickness="0"
-                                CornerRadius="14"
-                                Padding="12,6"
+                                ToolTip.Tip="{loc:Loc Common_Settings}"
                                 VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Path Data="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
-                                      Width="12" Height="12"
-                                      Stretch="Uniform"
-                                      Stroke="#A3FFFFFF"
-                                      StrokeThickness="1.75"
-                                      StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent"
-                                      VerticalAlignment="Center" />
-                                <TextBlock Text="{loc:Loc Common_Settings}"
-                                           FontSize="11"
-                                           Foreground="#A3FFFFFF"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
+                            <Path Data="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.830 2.830l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
+                                  Width="16" Height="16"
+                                  Stretch="Uniform"
+                                  StrokeThickness="1.75"
+                                  StrokeJoin="Round"
+                                  StrokeLineCap="Round" />
                         </Button>
                     </Grid>
                 </Border>
 
-                <!-- 中部双态内容区 -->
-                <Grid Grid.Row="1">
-                    <!-- 状态 A：搜索为空时展示 (复刻 launcher-dark.png) -->
+                <Border Grid.Row="1" Classes="divider-h" />
+
+                <!-- ===== 内容区 ===== -->
+                <Grid Grid.Row="2">
+                    <!-- 状态 A：空搜索 → 应用网格 -->
                     <ScrollViewer IsVisible="{Binding IsSearchEmpty}"
                                   VerticalScrollBarVisibility="Auto"
-                                  Padding="16,12">
-                        <StackPanel Spacing="16">
-                            <!-- 分组 1：最近使用 / 常用应用 (7 列网格) -->
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="{loc:Loc Launcher_RecentApps}"
-                                           FontSize="12"
-                                           FontWeight="Medium"
-                                           Foreground="#78FFFFFF"
-                                           Margin="4,0,0,0" />
-
+                                  Padding="16,14,16,10">
+                        <StackPanel Spacing="18">
+                            <StackPanel Spacing="6">
+                                <TextBlock Classes="section"
+                                           Text="{loc:Loc Launcher_RecentApps}"
+                                           Margin="8,0,0,0" />
                                 <ItemsControl ItemsSource="{Binding RecentApps}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -136,39 +111,36 @@
                                         <DataTemplate x:DataType="vm:AppTileItem">
                                             <Button Classes="tile-btn"
                                                     Command="{Binding LaunchCommand}"
-                                                    Width="86" Height="92"
-                                                    Margin="3,4"
+                                                    Width="94" Height="94"
+                                                    Margin="0,2"
                                                     ToolTip.Tip="{Binding Subtitle}">
-                                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <Border Width="46" Height="46"
-                                                            CornerRadius="12"
-                                                            Background="{Binding BadgeColor}"
-                                                            ClipToBounds="True"
-                                                            HorizontalAlignment="Center">
-                                                        <Panel>
-                                                            <Image Source="{Binding IconBitmap}"
-                                                                   IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                                                   Width="32" Height="32"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center" />
+                                                <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Panel Width="44" Height="44" HorizontalAlignment="Center">
+                                                        <!-- 真实应用图标：无底座，直接呈现 -->
+                                                        <Image Source="{Binding IconBitmap}"
+                                                               IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                               Width="42" Height="42"
+                                                               RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                                        <!-- 无图标：彩色字母底座 -->
+                                                        <Border Classes="icon-badge"
+                                                                CornerRadius="12"
+                                                                Background="{Binding BadgeColor}"
+                                                                IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNull}}">
                                                             <TextBlock Text="{Binding Glyph}"
-                                                                       IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNull}}"
-                                                                       FontSize="20"
+                                                                       FontSize="19"
                                                                        FontWeight="SemiBold"
                                                                        Foreground="#FFFFFF"
                                                                        HorizontalAlignment="Center"
                                                                        VerticalAlignment="Center" />
-                                                        </Panel>
-                                                    </Border>
-
+                                                        </Border>
+                                                    </Panel>
                                                     <TextBlock Text="{Binding Name}"
-                                                               FontSize="11"
-                                                               Foreground="#D0FFFFFF"
+                                                               FontSize="11.5"
+                                                               Foreground="{DynamicResource Pk.TextSecondary}"
                                                                TextAlignment="Center"
-                                                               MaxLines="2"
+                                                               MaxLines="1"
                                                                TextTrimming="CharacterEllipsis"
-                                                               Margin="0,6,0,0"
-                                                               Width="80" />
+                                                               Width="84" />
                                                 </StackPanel>
                                             </Button>
                                         </DataTemplate>
@@ -176,14 +148,10 @@
                                 </ItemsControl>
                             </StackPanel>
 
-                            <!-- 分组 2：已固定与效率工具 (矢量图标卡片) -->
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="{loc:Loc Launcher_PinnedApps}"
-                                           FontSize="12"
-                                           FontWeight="Medium"
-                                           Foreground="#78FFFFFF"
-                                           Margin="4,0,0,0" />
-
+                            <StackPanel Spacing="6">
+                                <TextBlock Classes="section"
+                                           Text="{loc:Loc Launcher_PinnedApps}"
+                                           Margin="8,0,0,0" />
                                 <ItemsControl ItemsSource="{Binding PinnedTools}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -194,44 +162,43 @@
                                         <DataTemplate x:DataType="vm:AppTileItem">
                                             <Button Classes="tile-btn"
                                                     Command="{Binding LaunchCommand}"
-                                                    Width="86" Height="92"
-                                                    Margin="3,4"
+                                                    Width="94" Height="94"
+                                                    Margin="0,2"
                                                     ToolTip.Tip="{Binding Subtitle}">
-                                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <Border Width="46" Height="46"
+                                                <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <!-- 工具图标：柔和色调底座 + 品牌色线性图标 -->
+                                                    <Border Width="44" Height="44"
                                                             CornerRadius="12"
-                                                            Background="{Binding BadgeColor}"
-                                                            ClipToBounds="True"
+                                                            Background="{DynamicResource Pk.SurfaceRaised}"
+                                                            BorderBrush="{DynamicResource Pk.Stroke}"
+                                                            BorderThickness="1"
                                                             HorizontalAlignment="Center">
                                                         <Panel>
                                                             <Path Data="{Binding IconGeometry}"
                                                                   IsVisible="{Binding HasIconPath}"
                                                                   Width="20" Height="20"
                                                                   Stretch="Uniform"
-                                                                  Stroke="#FFFFFF"
+                                                                  Stroke="{DynamicResource Pk.Accent}"
                                                                   StrokeThickness="1.75"
                                                                   StrokeJoin="Round"
                                                                   StrokeLineCap="Round"
-                                                                  Fill="Transparent"
                                                                   HorizontalAlignment="Center"
                                                                   VerticalAlignment="Center" />
                                                             <TextBlock Text="{Binding Glyph}"
                                                                        IsVisible="{Binding !HasIconPath}"
-                                                                       FontSize="20"
-                                                                       Foreground="#FFFFFF"
+                                                                       FontSize="19"
+                                                                       Foreground="{DynamicResource Pk.Accent}"
                                                                        HorizontalAlignment="Center"
                                                                        VerticalAlignment="Center" />
                                                         </Panel>
                                                     </Border>
-
                                                     <TextBlock Text="{Binding Name}"
-                                                               FontSize="11"
-                                                               Foreground="#D0FFFFFF"
+                                                               FontSize="11.5"
+                                                               Foreground="{DynamicResource Pk.TextSecondary}"
                                                                TextAlignment="Center"
-                                                               MaxLines="2"
+                                                               MaxLines="1"
                                                                TextTrimming="CharacterEllipsis"
-                                                               Margin="0,6,0,0"
-                                                               Width="80" />
+                                                               Width="84" />
                                                 </StackPanel>
                                             </Button>
                                         </DataTemplate>
@@ -241,82 +208,71 @@
                         </StackPanel>
                     </ScrollViewer>
 
-                    <!-- 状态 B：搜索有输入时展示 (复刻 launcher-search-dark.png) -->
+                    <!-- 状态 B：有输入 → 快捷动作 + 结果列表 -->
                     <Grid IsVisible="{Binding !IsSearchEmpty}"
-                          RowDefinitions="Auto,*"
-                          Margin="12,10">
-                        <!-- 顶部 6 个快捷动作磁贴行 (带 Lucide 线性矢量图标) -->
-                        <Border Grid.Row="0"
-                                Background="#08FFFFFF"
-                                BorderBrush="#12FFFFFF"
-                                BorderThickness="1"
-                                CornerRadius="12"
-                                Padding="8,6"
-                                Margin="4,0,4,8">
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="{Binding QuickActionTitle}"
-                                           FontSize="10"
-                                           Foreground="#70FFFFFF"
-                                           Margin="4,0,0,2" />
+                          RowDefinitions="Auto,*">
+                        <!-- 快捷动作芯片 -->
+                        <StackPanel Grid.Row="0" Spacing="8" Margin="18,12,18,6">
+                            <TextBlock Classes="section"
+                                       Text="{Binding QuickActionTitle}"
+                                       Margin="2,0,0,0" />
+                            <ItemsControl ItemsSource="{Binding QuickActions}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:QuickActionTile">
+                                        <Button Classes="chip"
+                                                Command="{Binding ExecuteCommand}"
+                                                Margin="0,0,6,6">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Path Data="{Binding IconGeometry}"
+                                                      Width="13" Height="13"
+                                                      Stretch="Uniform"
+                                                      Stroke="{DynamicResource Pk.Accent}"
+                                                      StrokeThickness="1.9"
+                                                      StrokeJoin="Round"
+                                                      StrokeLineCap="Round"
+                                                      VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Title}"
+                                                           FontSize="12"
+                                                           FontWeight="Medium"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
 
-                                <ItemsControl ItemsSource="{Binding QuickActions}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <UniformGrid Rows="1" Columns="6" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:QuickActionTile">
-                                            <Button Classes="tile-btn"
-                                                    Command="{Binding ExecuteCommand}"
-                                                    Height="46"
-                                                    Margin="2"
-                                                    Background="#14FFFFFF"
-                                                    CornerRadius="10">
-                                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <Path Data="{Binding IconGeometry}"
-                                                          Width="14" Height="14"
-                                                          Stretch="Uniform"
-                                                          Stroke="#93C5FD"
-                                                          StrokeThickness="1.75"
-                                                          StrokeJoin="Round"
-                                                          StrokeLineCap="Round"
-                                                          Fill="Transparent"
-                                                          VerticalAlignment="Center" />
-                                                    <TextBlock Text="{Binding Title}"
-                                                               FontSize="11"
-                                                               FontWeight="Medium"
-                                                               Foreground="#F0FFFFFF"
-                                                               VerticalAlignment="Center" />
-                                                </StackPanel>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- 下方混合结果列表 -->
+                        <!-- 结果列表 -->
                         <ListBox Grid.Row="1"
                                  Name="ResultListBox"
+                                 Classes="pk-list"
+                                 Padding="10,0,10,8"
                                  ItemsSource="{Binding SearchResults}"
                                  SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                                  SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}"
-                                 Background="Transparent"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </ListBox.Styles>
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:LauncherListItem">
                                     <StackPanel Background="Transparent">
-                                        <!-- 分组标题（仅首项展示） -->
-                                        <Border IsVisible="{Binding IsFirstInGroup}"
-                                                Margin="4,8,4,4">
-                                            <TextBlock Text="{Binding GroupDisplayName}"
-                                                       FontSize="11"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#78FFFFFF" />
-                                        </Border>
+                                        <!-- 分组标题（每组首项） -->
+                                        <TextBlock IsVisible="{Binding IsFirstInGroup}"
+                                                   Classes="section"
+                                                   Text="{Binding GroupDisplayName}"
+                                                   Margin="10,10,0,6" />
 
-                                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="2" Background="Transparent">
+                                        <Grid ColumnDefinitions="3,Auto,*,Auto,Auto,Auto"
+                                              Height="48"
+                                              Background="Transparent">
                                             <Grid.ContextMenu>
                                                 <ContextMenu>
                                                     <MenuItem Header="打开 / 执行"
@@ -335,82 +291,98 @@
                                                 </ContextMenu>
                                             </Grid.ContextMenu>
 
-                                            <!-- 左侧图标与分类标签组合 -->
-                                            <StackPanel Grid.Column="0"
-                                                        Orientation="Horizontal"
-                                                        Spacing="8"
-                                                        Margin="0,0,12,0"
-                                                        VerticalAlignment="Center">
-                                                <!-- 图标磁贴 -->
-                                                <Border Width="28" Height="28"
-                                                        CornerRadius="8"
+                                            <!-- 选中指示条 -->
+                                            <Border Grid.Column="0"
+                                                    Classes="sel-bar"
+                                                    Width="3" Height="20"
+                                                    CornerRadius="2"
+                                                    Background="{DynamicResource Pk.Accent}"
+                                                    VerticalAlignment="Center" />
+
+                                            <!-- 图标 -->
+                                            <Panel Grid.Column="1"
+                                                   Width="32" Height="32"
+                                                   Margin="9,0,12,0"
+                                                   VerticalAlignment="Center">
+                                                <Image Source="{Binding IconBitmap}"
+                                                       IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                       Width="28" Height="28"
+                                                       RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                                <Border Classes="icon-badge"
                                                         Background="{Binding BadgeColor}"
-                                                        ClipToBounds="True"
-                                                        VerticalAlignment="Center">
+                                                        IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNull}}">
                                                     <Panel>
-                                                        <Image Source="{Binding IconBitmap}"
-                                                               IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                                               Width="20" Height="20"
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center" />
                                                         <Path Data="{Binding IconGeometry}"
                                                               IsVisible="{Binding ShowIconPath}"
-                                                              Width="14" Height="14"
+                                                              Width="15" Height="15"
                                                               Stretch="Uniform"
                                                               Stroke="#FFFFFF"
-                                                              StrokeThickness="1.75"
+                                                              StrokeThickness="1.9"
                                                               StrokeJoin="Round"
                                                               StrokeLineCap="Round"
-                                                              Fill="Transparent"
                                                               HorizontalAlignment="Center"
                                                               VerticalAlignment="Center" />
                                                         <TextBlock Text="{Binding Glyph}"
                                                                    IsVisible="{Binding ShowGlyph}"
-                                                                   FontSize="12"
+                                                                   FontSize="13"
                                                                    FontWeight="SemiBold"
                                                                    Foreground="#FFFFFF"
                                                                    HorizontalAlignment="Center"
                                                                    VerticalAlignment="Center" />
                                                     </Panel>
                                                 </Border>
+                                            </Panel>
 
-                                                <!-- 分类标签 -->
-                                                <Border Background="{Binding TagColor}"
-                                                        CornerRadius="6"
-                                                        Padding="6,3"
-                                                        VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Tag}"
-                                                               FontSize="10"
-                                                               FontWeight="SemiBold"
-                                                               Foreground="#FFFFFF" />
-                                                </Border>
-                                            </StackPanel>
-
-                                            <!-- 标题与副标题 -->
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Title}"
-                                                           FontSize="13"
+                                            <!-- 标题 / 副标题 -->
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="1">
+                                                <TextBlock Classes="row-title"
+                                                           Text="{Binding Title}"
+                                                           FontSize="13.5"
                                                            FontWeight="Medium"
-                                                           Foreground="#F5FFFFFF"
+                                                           Foreground="{DynamicResource Pk.Text}"
                                                            TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding Subtitle}"
-                                                           FontSize="12"
-                                                           Foreground="#9EFFFFFF"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           Margin="0,2,0,0" />
+                                                           IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                           FontSize="11.5"
+                                                           Foreground="{DynamicResource Pk.TextTertiary}"
+                                                           TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
 
-                                            <!-- Alt 数字快捷键徽章 -->
-                                            <Border Grid.Column="2"
-                                                    IsVisible="{Binding HotkeyText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                    Background="#18FFFFFF"
-                                                    CornerRadius="4"
-                                                    Padding="6,2"
-                                                    VerticalAlignment="Center"
-                                                    Margin="8,0,0,0">
-                                                <TextBlock Text="{Binding HotkeyText}"
-                                                           FontSize="10"
-                                                           Foreground="#93C5FD" />
+                                            <!-- 分类标签：色点 + 文字 -->
+                                            <StackPanel Grid.Column="3"
+                                                        Orientation="Horizontal"
+                                                        Spacing="6"
+                                                        Margin="12,0,0,0"
+                                                        VerticalAlignment="Center">
+                                                <Ellipse Width="6" Height="6"
+                                                         Fill="{Binding TagColor}"
+                                                         VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Tag}"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource Pk.TextTertiary}"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+
+                                            <!-- Alt+N 快捷键 -->
+                                            <Border Grid.Column="4"
+                                                    Classes="keycap"
+                                                    Margin="10,0,0,0"
+                                                    IsVisible="{Binding HotkeyText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                                <TextBlock Classes="keycap-text" Text="{Binding HotkeyText}" />
+                                            </Border>
+
+                                            <!-- 选中时的回车提示 -->
+                                            <Border Grid.Column="5"
+                                                    Classes="enter-hint"
+                                                    Margin="8,0,12,0"
+                                                    VerticalAlignment="Center">
+                                                <Path Data="M9 10l-5 5 5 5 M20 4v7a4 4 0 0 1-4 4H4"
+                                                      Width="13" Height="13"
+                                                      Stretch="Uniform"
+                                                      Stroke="{DynamicResource Pk.AccentText}"
+                                                      StrokeThickness="2"
+                                                      StrokeJoin="Round"
+                                                      StrokeLineCap="Round" />
                                             </Border>
                                         </Grid>
                                     </StackPanel>
@@ -420,49 +392,53 @@
                     </Grid>
                 </Grid>
 
-                <!-- 底部原版按键提示栏 (Keycap 风格) -->
-                <Border Grid.Row="2"
-                        Height="38"
-                        Background="#10FFFFFF"
-                        BorderBrush="#18FFFFFF"
+                <!-- ===== 底部提示栏 ===== -->
+                <Border Grid.Row="3"
+                        Height="40"
+                        Background="{DynamicResource Pk.SurfaceFooter}"
+                        BorderBrush="{DynamicResource Pk.Divider}"
                         BorderThickness="0,1,0,0"
-                        Padding="16,0">
+                        Padding="18,0">
                     <Grid ColumnDefinitions="*,Auto">
-                        <!-- 左侧唤醒提示 -->
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="4">
-                            <TextBlock Text="双击" FontSize="11" Foreground="#70FFFFFF" VerticalAlignment="Center" />
-                            <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Ctrl" /></Border>
-                            <TextBlock Text="或" FontSize="11" Foreground="#70FFFFFF" VerticalAlignment="Center" Margin="2,0" />
-                            <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Ctrl" /></Border>
-                            <TextBlock Text="+" FontSize="11" Foreground="#50FFFFFF" VerticalAlignment="Center" />
-                            <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Space" /></Border>
-                            <TextBlock Text="唤醒" FontSize="11" Foreground="#70FFFFFF" VerticalAlignment="Center" Margin="2,0,0,0" />
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                            <!-- 品牌标识 -->
+                            <Border Width="16" Height="16" CornerRadius="5" VerticalAlignment="Center">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                                        <GradientStop Offset="0" Color="#9B8CFF" />
+                                        <GradientStop Offset="1" Color="#5B6CFF" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <TextBlock Text="P" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Text="Pankin" FontSize="11.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Pk.TextSecondary}" VerticalAlignment="Center" />
+                            <Border Classes="divider-v" Height="12" Margin="2,0" />
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="{Binding HotkeyDisplay}" /></Border>
+                                <TextBlock Classes="hint" Text="唤醒" Margin="2,0,0,0" />
+                            </StackPanel>
                         </StackPanel>
 
-                        <!-- 右侧精致键帽 -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Enter" /></Border>
-                                <TextBlock Text="打开" FontSize="11" Foreground="#80FFFFFF" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="14">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="↵" /></Border>
+                                <TextBlock Classes="hint" Text="打开" />
                             </StackPanel>
-
                             <StackPanel Orientation="Horizontal" Spacing="3">
                                 <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Ctrl" /></Border>
-                                <TextBlock Text="+" FontSize="11" Foreground="#50FFFFFF" VerticalAlignment="Center" />
-                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Enter" /></Border>
-                                <TextBlock Text="所在目录" FontSize="11" Foreground="#80FFFFFF" VerticalAlignment="Center" Margin="3,0,0,0" />
+                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="↵" /></Border>
+                                <TextBlock Classes="hint" Text="所在目录" Margin="2,0,0,0" />
                             </StackPanel>
-
                             <StackPanel Orientation="Horizontal" Spacing="3">
                                 <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Alt" /></Border>
-                                <TextBlock Text="+" FontSize="11" Foreground="#50FFFFFF" VerticalAlignment="Center" />
                                 <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="," /></Border>
-                                <TextBlock Text="设置" FontSize="11" Foreground="#80FFFFFF" VerticalAlignment="Center" Margin="3,0,0,0" />
+                                <TextBlock Classes="hint" Text="设置" Margin="2,0,0,0" />
                             </StackPanel>
-
-                            <StackPanel Orientation="Horizontal" Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
                                 <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Esc" /></Border>
-                                <TextBlock Text="隐藏" FontSize="11" Foreground="#80FFFFFF" VerticalAlignment="Center" />
+                                <TextBlock Classes="hint" Text="隐藏" />
                             </StackPanel>
                         </StackPanel>
                     </Grid>

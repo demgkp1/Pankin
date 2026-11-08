@@ -103,56 +103,16 @@ public sealed class RenameFilePreviewItem : ObservableObject
     }
 }
 
-public sealed partial class GestureMappingItem : ObservableObject
-{
-    public string GestureCode { get; }
-    public string GestureName { get; }
-
-    [ObservableProperty]
-    private string _selectedAction;
-
-    public ObservableCollection<string> AvailableActions { get; } =
-    [
-        "后退 (Alt+Left)",
-        "前进 (Alt+Right)",
-        "回到顶部 (Home)",
-        "到底部 (End)",
-        "关闭标签页 (Ctrl+W)",
-        "呼出启动器",
-        "呼出剪贴板",
-        "呼出超级面板",
-        "打开设置",
-        "锁定屏幕",
-        "无动作"
-    ];
-
-    private readonly Action<string> _onActionChanged;
-
-    public GestureMappingItem(string code, string name, string action, Action<string> onActionChanged)
-    {
-        GestureCode = code;
-        GestureName = name;
-        _selectedAction = action;
-        _onActionChanged = onActionChanged;
-    }
-
-    partial void OnSelectedActionChanged(string value)
-    {
-        _onActionChanged?.Invoke(value);
-    }
-}
-
 public partial class SettingsViewModel : ViewModelBase
 {
     private readonly DesktopAppContext _context;
 
-    // 11 个选项卡显隐控制 (严格对齐原版 Pane-Win)
+    // 10 个选项卡显隐控制 (对齐桌面端)
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsTabGeneral))]
     [NotifyPropertyChangedFor(nameof(IsTabModules))]
     [NotifyPropertyChangedFor(nameof(IsTabLauncher))]
     [NotifyPropertyChangedFor(nameof(IsTabClipboard))]
-    [NotifyPropertyChangedFor(nameof(IsTabGestures))]
     [NotifyPropertyChangedFor(nameof(IsTabSuperPanel))]
     [NotifyPropertyChangedFor(nameof(IsTabFolderJump))]
     [NotifyPropertyChangedFor(nameof(IsTabBatchRename))]
@@ -165,7 +125,6 @@ public partial class SettingsViewModel : ViewModelBase
     public bool IsTabModules => SelectedTabIndex == 1;
     public bool IsTabLauncher => SelectedTabIndex == 2;
     public bool IsTabClipboard => SelectedTabIndex == 3;
-    public bool IsTabGestures => SelectedTabIndex == 4;
     public bool IsTabSuperPanel => SelectedTabIndex == 5;
     public bool IsTabFolderJump => SelectedTabIndex == 6;
     public bool IsTabBatchRename => SelectedTabIndex == 7;
@@ -175,10 +134,22 @@ public partial class SettingsViewModel : ViewModelBase
 
     // --- Tab 0: 通用 ---
     [ObservableProperty]
-    private string _selectedThemeColor = "#5874C9";
+    private string _selectedThemeColor = "#8B8DFF";
 
     [ObservableProperty]
-    private double _panelRadius = 20.0;
+    private double _panelRadius = 16.0;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PanelOpacityPercentText))]
+    private double _panelOpacity = 0.94;
+
+    public string PanelOpacityPercentText => $"{(int)Math.Round(PanelOpacity * 100)}%";
+
+    [ObservableProperty]
+    private bool _hideOnDeactivate = true;
+
+    [ObservableProperty]
+    private bool _rememberWindowPosition = true;
 
     [ObservableProperty]
     private bool _startAtLogin;
@@ -209,12 +180,30 @@ public partial class SettingsViewModel : ViewModelBase
     // --- Tab 1: 能力网格 ---
     public ObservableCollection<ModuleCardItem> Modules { get; } = [];
 
+    // --- 热键录制状态 ---
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRecordingLauncher))]
+    [NotifyPropertyChangedFor(nameof(IsRecordingClipboard))]
+    [NotifyPropertyChangedFor(nameof(IsRecordingSuperPanel))]
+    [NotifyPropertyChangedFor(nameof(LauncherRecordButtonText))]
+    [NotifyPropertyChangedFor(nameof(ClipboardRecordButtonText))]
+    [NotifyPropertyChangedFor(nameof(SuperPanelRecordButtonText))]
+    private string? _recordingTarget;
+
+    public bool IsRecordingLauncher => RecordingTarget == "Launcher";
+    public bool IsRecordingClipboard => RecordingTarget == "Clipboard";
+    public bool IsRecordingSuperPanel => RecordingTarget == "SuperPanel";
+
+    public string LauncherRecordButtonText => IsRecordingLauncher ? "请按下快捷键..." : "点击录制";
+    public string ClipboardRecordButtonText => IsRecordingClipboard ? "请按下快捷键..." : "点击录制";
+    public string SuperPanelRecordButtonText => IsRecordingSuperPanel ? "请按下快捷键..." : "点击录制";
+
     // --- Tab 2: 启动器 ---
     [ObservableProperty]
     private string _launcherHotkey = "Ctrl+Space";
 
     [ObservableProperty]
-    private bool _doubleTapCtrl = true;
+    private bool _doubleTapCtrl = false;
 
     [ObservableProperty]
     private bool _enableFileSearch = true;
@@ -261,23 +250,10 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _clipboardRecordImages = true;
 
-    // --- Tab 4: 鼠标手势 ---
-    [ObservableProperty]
-    private string _selectedGestureButton = "Right";
-
-    public ObservableCollection<string> GestureButtons { get; } =
-    [
-        "Right",
-        "Middle",
-        "Side"
-    ];
-
-    [ObservableProperty]
-    private bool _showGestureTrail = true;
-
-    public ObservableCollection<GestureMappingItem> GestureMappings { get; } = [];
-
     // --- Tab 5: 超级面板 ---
+    [ObservableProperty]
+    private string _superPanelHotkey = "Alt+S";
+
     [ObservableProperty]
     private bool _autoTranslateSelection;
 
@@ -345,8 +321,7 @@ public partial class SettingsViewModel : ViewModelBase
     [
         "关机",
         "重启",
-        "睡眠",
-        "锁屏"
+        "睡眠"
     ];
 
     [ObservableProperty]
@@ -359,7 +334,6 @@ public partial class SettingsViewModel : ViewModelBase
     private string _powerTimerTargetAtText = string.Empty;
 
     private DispatcherTimer? _powerTimerTicker;
-    private DateTimeOffset? _powerTimerTargetTime;
     private bool _hasRemindedPowerTimer;
 
     // --- Tab 9: AI 服务 ---
@@ -404,11 +378,39 @@ public partial class SettingsViewModel : ViewModelBase
 
         InitNavTabs();
         InitModulesGrid();
-        InitGestureMappings();
         InitAiPresets();
         LoadFromSettingsStore();
 
         _context.Modules.Changed += (_, _) => Dispatcher.UIThread.Post(UpdateNavTabsVisibility);
+
+        _context.PowerTimer.Changed += (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            var current = _context.PowerTimer.Current;
+            if (current is { Reminding: true } && !_hasRemindedPowerTimer)
+            {
+                _hasRemindedPowerTimer = true;
+                string actionName = current.Action switch
+                {
+                    Pankin.Core.Launcher.PowerAction.Shutdown => "关机",
+                    Pankin.Core.Launcher.PowerAction.Restart => "重启",
+                    Pankin.Core.Launcher.PowerAction.Sleep => "睡眠",
+                    _ => "关机"
+                };
+                ShowNotification("Pankin 定时关机提醒", $"系统将在 1 分钟后执行「{actionName}」，如需取消请打开 Pankin。");
+            }
+            else if (current == null)
+            {
+                _hasRemindedPowerTimer = false;
+            }
+            SyncPowerTimerFromService();
+        });
+
+        _context.PowerTimer.Finished += (_, _) => Dispatcher.UIThread.Post(SyncPowerTimerFromService);
+
+        _powerTimerTicker = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _powerTimerTicker.Tick += (_, _) => UpdatePowerTimerDisplay();
+        _powerTimerTicker.Start();
+        SyncPowerTimerFromService();
     }
 
     private void InitNavTabs()
@@ -453,7 +455,7 @@ public partial class SettingsViewModel : ViewModelBase
                 1 => true,
                 2 => m.Launcher,
                 3 => m.Clipboard,
-                4 => m.Gestures,
+                4 => false, // 彻底移除鼠标手势导航项
                 5 => m.SuperPanel,
                 6 => m.FolderJump,
                 7 => m.BatchRename,
@@ -490,13 +492,6 @@ public partial class SettingsViewModel : ViewModelBase
                 UpdateNavTabsVisibility();
             }));
 
-        Modules.Add(new ModuleCardItem("gestures", "鼠标手势", LucideIcons.Mouse, "按住右键/侧键画方向，执行快捷键、窗口操作等动作", m.Gestures, false,
-            enabled =>
-            {
-                SaveSetting(s => s with { Modules = s.Modules with { Gestures = enabled } });
-                UpdateNavTabsVisibility();
-            }));
-
         Modules.Add(new ModuleCardItem("super", "超级面板", LucideIcons.Wand, "选中文字后长按鼠标侧键或自动弹出，就地翻译、总结、润色", m.SuperPanel, false,
             enabled =>
             {
@@ -516,14 +511,14 @@ public partial class SettingsViewModel : ViewModelBase
             {
                 SaveSetting(s => s with { Modules = s.Modules with { BatchRename = enabled } });
                 UpdateNavTabsVisibility();
-            }, () => SwitchToTab("批量重命名")));
+            }, () => SwitchTab(7)));
 
         Modules.Add(new ModuleCardItem("power-timer", "定时关机", LucideIcons.Timer, "到点关机、重启或睡眠；到点前 1 分钟提醒，可以取消或推迟", m.PowerTimer, true,
             enabled =>
             {
                 SaveSetting(s => s with { Modules = s.Modules with { PowerTimer = enabled } });
                 UpdateNavTabsVisibility();
-            }, () => SwitchToTab("定时关机")));
+            }, () => SwitchTab(8)));
 
         Modules.Add(new ModuleCardItem("ai", "AI", LucideIcons.Ai, "翻译、提问和对文字的快捷动作；在 AI 设置里接入服务", m.Ai, false,
             enabled =>
@@ -531,46 +526,6 @@ public partial class SettingsViewModel : ViewModelBase
                 SaveSetting(s => s with { Modules = s.Modules with { Ai = enabled } });
                 UpdateNavTabsVisibility();
             }));
-    }
-
-    private void InitGestureMappings()
-    {
-        GestureMappings.Clear();
-        var bindings = _context.SettingsStore.Current.Gestures.Bindings;
-
-        (string Code, string Name)[] templates =
-        [
-            ("L", "左滑 (L)"),
-            ("R", "右滑 (R)"),
-            ("U", "上滑 (U)"),
-            ("D", "下滑 (D)"),
-            ("DR", "右下 (DR)"),
-            ("DL", "左下 (DL)"),
-            ("UL", "左上 (UL)"),
-            ("UR", "右上 (UR)"),
-            ("Hold", "长按 (Hold)")
-        ];
-
-        foreach (var t in templates)
-        {
-            var existing = bindings.FirstOrDefault(b => string.Equals(b.Direction, t.Code, StringComparison.OrdinalIgnoreCase));
-            string action = existing?.Action ?? (t.Code == "Hold" ? "呼出超级面板" : "无动作");
-
-            GestureMappings.Add(new GestureMappingItem(t.Code, t.Name, action, newAction =>
-            {
-                SaveGestureBindings();
-            }));
-        }
-    }
-
-    private void SaveGestureBindings()
-    {
-        var list = GestureMappings
-            .Where(m => m.SelectedAction != "无动作")
-            .Select(m => new GestureBindingConfig(m.GestureCode, m.SelectedAction))
-            .ToList();
-
-        SaveSetting(s => s with { Gestures = s.Gestures with { Bindings = list } });
     }
 
     private void InitAiPresets()
@@ -614,6 +569,9 @@ public partial class SettingsViewModel : ViewModelBase
             SelectedLanguage = settings.General.UiLanguage ?? "system";
             SelectedTheme = settings.General.Theme;
             PanelRadius = settings.General.PanelRadius;
+            PanelOpacity = settings.General.PanelOpacity;
+            HideOnDeactivate = settings.General.HideOnDeactivate;
+            RememberWindowPosition = settings.General.RememberWindowPosition;
             StartAtLogin = settings.General.StartAtLogin;
             ShowTrayIcon = settings.General.ShowTrayIcon;
             SelectedThemeColor = settings.General.AccentColor;
@@ -631,11 +589,8 @@ public partial class SettingsViewModel : ViewModelBase
             ClipboardHotkey = settings.Clipboard.Hotkey;
             ClipboardMaxItems = settings.Clipboard.HistoryLimit;
 
-            // 鼠标手势
-            SelectedGestureButton = settings.Gestures.TriggerButton;
-            ShowGestureTrail = settings.Gestures.ShowTrail;
-
             // 超级面板
+            SuperPanelHotkey = settings.SuperPanel.Hotkey;
             AutoTranslateSelection = settings.Ai.AutoTranslateSelection;
             SuperPanelTrigger = settings.SuperPanel.TriggerButton;
             SuperPanelHoldDuration = settings.SuperPanel.HoldDurationMs;
@@ -655,6 +610,7 @@ public partial class SettingsViewModel : ViewModelBase
                 foreach (var f in settings.Launcher.FavoriteFolders)
                 {
                     FavoriteFolders.Add(f);
+                    _ = _context.FolderJumpStore.AddFolderAsync(f, isPinned: true);
                 }
             }
             else
@@ -668,8 +624,13 @@ public partial class SettingsViewModel : ViewModelBase
                 ];
                 foreach (var d in defaults)
                 {
-                    if (Directory.Exists(d)) FavoriteFolders.Add(d);
+                    if (Directory.Exists(d))
+                    {
+                        FavoriteFolders.Add(d);
+                        _ = _context.FolderJumpStore.AddFolderAsync(d, isPinned: true);
+                    }
                 }
+                _context.SettingsStore.Update(s => s with { Launcher = s.Launcher with { FavoriteFolders = FavoriteFolders.ToList() } });
             }
 
             // AI 服务
@@ -689,6 +650,136 @@ public partial class SettingsViewModel : ViewModelBase
     partial void OnPanelRadiusChanged(double value)
     {
         SaveSetting(s => s with { General = s.General with { PanelRadius = value } });
+        App.ApplyAppearance(_context.SettingsStore.Current.General);
+    }
+
+    partial void OnPanelOpacityChanged(double value)
+    {
+        SaveSetting(s => s with { General = s.General with { PanelOpacity = value } });
+        App.ApplyAppearance(_context.SettingsStore.Current.General);
+    }
+
+    partial void OnHideOnDeactivateChanged(bool value)
+    {
+        SaveSetting(s => s with { General = s.General with { HideOnDeactivate = value } });
+    }
+
+    partial void OnRememberWindowPositionChanged(bool value)
+    {
+        SaveSetting(s => s with { General = s.General with { RememberWindowPosition = value } });
+    }
+
+    partial void OnSelectedThemeColorChanged(string value)
+    {
+        SaveSetting(s => s with { General = s.General with { AccentColor = value } });
+        App.ApplyAppearance(_context.SettingsStore.Current.General);
+    }
+
+    [RelayCommand]
+    public void SelectAccentColor(string hex)
+    {
+        SelectedThemeColor = hex;
+        SaveSetting(s => s with { General = s.General with { AccentColor = hex } });
+        App.ApplyAppearance(_context.SettingsStore.Current.General);
+    }
+
+    [RelayCommand]
+    public void SetPanelRadius(object? param)
+    {
+        if (param is double d) PanelRadius = d;
+        else if (param is int i) PanelRadius = i;
+        else if (param is string s && double.TryParse(s, out var p)) PanelRadius = p;
+        SaveSetting(st => st with { General = st.General with { PanelRadius = PanelRadius } });
+        App.ApplyAppearance(_context.SettingsStore.Current.General);
+    }
+
+    [RelayCommand]
+    public void ResetWindowPosition()
+    {
+        SaveSetting(s => s with
+        {
+            General = s.General with
+            {
+                LauncherPositionX = null,
+                LauncherPositionY = null
+            }
+        });
+
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop &&
+            desktop.MainWindow is { } mainWin)
+        {
+            mainWin.WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterScreen;
+            var screens = mainWin.Screens;
+            var primary = screens.Primary;
+            if (primary != null)
+            {
+                int cx = (int)((primary.WorkingArea.Width - mainWin.Width) / 2);
+                int cy = (int)((primary.WorkingArea.Height - mainWin.Height) / 3);
+                mainWin.Position = new Avalonia.PixelPoint(cx, cy);
+            }
+        }
+
+        ShowNotification("Pankin 设置", "主面板位置已重置居中！");
+    }
+
+    [RelayCommand]
+    public void StartRecording(string target)
+    {
+        RecordingTarget = target;
+    }
+
+    [RelayCommand]
+    public void CancelRecording()
+    {
+        RecordingTarget = null;
+    }
+
+    public void SetRecordedHotkey(string hotkey)
+    {
+        if (string.IsNullOrWhiteSpace(hotkey))
+        {
+            RecordingTarget = null;
+            return;
+        }
+
+        if (RecordingTarget == "Launcher")
+        {
+            LauncherHotkey = hotkey;
+            SaveSetting(s => s with { Launcher = s.Launcher with { Hotkey = hotkey } });
+        }
+        else if (RecordingTarget == "Clipboard")
+        {
+            ClipboardHotkey = hotkey;
+            SaveSetting(s => s with { Clipboard = s.Clipboard with { Hotkey = hotkey } });
+        }
+        else if (RecordingTarget == "SuperPanel")
+        {
+            SuperPanelHotkey = hotkey;
+            SaveSetting(s => s with { SuperPanel = s.SuperPanel with { Hotkey = hotkey } });
+        }
+
+        RecordingTarget = null;
+    }
+
+    [RelayCommand]
+    public void SetLauncherPreset(string hotkey)
+    {
+        LauncherHotkey = hotkey;
+        SaveSetting(s => s with { Launcher = s.Launcher with { Hotkey = hotkey } });
+    }
+
+    [RelayCommand]
+    public void SetClipboardPreset(string hotkey)
+    {
+        ClipboardHotkey = hotkey;
+        SaveSetting(s => s with { Clipboard = s.Clipboard with { Hotkey = hotkey } });
+    }
+
+    [RelayCommand]
+    public void SetSuperPanelPreset(string hotkey)
+    {
+        SuperPanelHotkey = hotkey;
+        SaveSetting(s => s with { SuperPanel = s.SuperPanel with { Hotkey = hotkey } });
     }
 
     partial void OnSelectedLanguageChanged(string value)
@@ -783,9 +874,39 @@ public partial class SettingsViewModel : ViewModelBase
         }
     }
 
-    partial void OnSelectedGestureButtonChanged(string value)
+    partial void OnSelectedSearchEngineChanged(string value)
     {
-        SaveSetting(s => s with { Gestures = s.Gestures with { TriggerButton = value } });
+        SaveSetting(s => s with { Launcher = s.Launcher with { DefaultSearchEngine = value } });
+    }
+
+    partial void OnDoubleTapCtrlChanged(bool value)
+    {
+        SaveSetting(s => s with { Launcher = s.Launcher with { DoubleTapCtrl = value } });
+    }
+
+    partial void OnClipboardMaxItemsChanged(int value)
+    {
+        SaveSetting(s => s with { Clipboard = s.Clipboard with { HistoryLimit = value } });
+    }
+
+    partial void OnClipboardRecordTextChanged(bool value)
+    {
+        SaveSetting(s => s with { Clipboard = s.Clipboard with { RecordText = value } });
+    }
+
+    partial void OnClipboardRecordImagesChanged(bool value)
+    {
+        SaveSetting(s => s with { Clipboard = s.Clipboard with { RecordImages = value } });
+    }
+
+    partial void OnSuperPanelTriggerChanged(string value)
+    {
+        SaveSetting(s => s with { SuperPanel = s.SuperPanel with { TriggerButton = value } });
+    }
+
+    partial void OnSuperPanelHoldDurationChanged(int value)
+    {
+        SaveSetting(s => s with { SuperPanel = s.SuperPanel with { HoldDurationMs = value } });
     }
 
     partial void OnAutoTranslateSelectionChanged(bool value)
@@ -829,7 +950,8 @@ public partial class SettingsViewModel : ViewModelBase
             {
                 FavoriteFolders.Add(p);
                 NewFavoriteFolderPath = string.Empty;
-                SaveSetting(s => s with { Launcher = s.Launcher with { FavoriteFolders = FavoriteFolders.ToList() } });
+                _context.SettingsStore.Update(s => s with { Launcher = s.Launcher with { FavoriteFolders = FavoriteFolders.ToList() } });
+                _ = _context.FolderJumpStore.AddFolderAsync(p, isPinned: true);
             }
         }
     }
@@ -840,6 +962,7 @@ public partial class SettingsViewModel : ViewModelBase
         if (FavoriteFolders.Remove(path))
         {
             SaveSetting(s => s with { Launcher = s.Launcher with { FavoriteFolders = FavoriteFolders.ToList() } });
+            _ = _context.FolderJumpStore.RemoveFolderAsync(path);
         }
     }
 
@@ -950,86 +1073,77 @@ public partial class SettingsViewModel : ViewModelBase
     public void ArmPowerTimer()
     {
         if (PowerTimerMinutes < 1) PowerTimerMinutes = 1;
-        _powerTimerTargetTime = DateTimeOffset.Now.AddMinutes(PowerTimerMinutes);
-        _hasRemindedPowerTimer = false;
-        IsPowerTimerArmed = true;
-        PowerTimerTargetAtText = $"将于 {_powerTimerTargetTime.Value:HH:mm:ss} 执行 {SelectedPowerAction}";
-
-        _powerTimerTicker?.Stop();
-        _powerTimerTicker = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _powerTimerTicker.Tick += OnPowerTimerTick;
-        _powerTimerTicker.Start();
-        UpdatePowerTimerDisplay();
+        var action = SelectedPowerAction switch
+        {
+            "重启" => Pankin.Core.Launcher.PowerAction.Restart,
+            "睡眠" => Pankin.Core.Launcher.PowerAction.Sleep,
+            _ => Pankin.Core.Launcher.PowerAction.Shutdown
+        };
+        var targetTime = DateTimeOffset.Now.AddMinutes(PowerTimerMinutes);
+        try
+        {
+            _context.PowerTimer.Schedule(action, targetTime);
+        }
+        catch (Exception ex)
+        {
+            ShowNotification("定时关机设置失败", ex.Message);
+        }
     }
 
     [RelayCommand]
     public void CancelPowerTimer()
     {
-        _powerTimerTicker?.Stop();
-        _powerTimerTicker = null;
-        _powerTimerTargetTime = null;
-        IsPowerTimerArmed = false;
-        PowerTimerRemainingText = "--:--";
-        PowerTimerTargetAtText = "定时已取消";
+        _context.PowerTimer.Cancel();
     }
 
-    private void OnPowerTimerTick(object? sender, EventArgs e)
+    private void SyncPowerTimerFromService()
     {
-        if (_powerTimerTargetTime == null) return;
-        var left = _powerTimerTargetTime.Value - DateTimeOffset.Now;
-
-        if (left <= TimeSpan.Zero)
+        var current = _context.PowerTimer.Current;
+        if (current == null)
         {
-            _powerTimerTicker?.Stop();
-            _powerTimerTicker = null;
             IsPowerTimerArmed = false;
-            PowerTimerRemainingText = "00:00";
-            ExecutePowerAction(SelectedPowerAction);
-            return;
+            PowerTimerRemainingText = "--:--";
+            PowerTimerTargetAtText = "定时已取消";
         }
-
-        UpdatePowerTimerDisplay();
-
-        if (left <= TimeSpan.FromSeconds(60) && !_hasRemindedPowerTimer)
+        else
         {
-            _hasRemindedPowerTimer = true;
-            ShowNotification("Pankin 定时关机提醒", $"系统将在 1 分钟后执行「{SelectedPowerAction}」，如需取消请打开 Pankin。");
+            IsPowerTimerArmed = true;
+            string actionName = current.Action switch
+            {
+                Pankin.Core.Launcher.PowerAction.Shutdown => "关机",
+                Pankin.Core.Launcher.PowerAction.Restart => "重启",
+                Pankin.Core.Launcher.PowerAction.Sleep => "睡眠",
+                _ => "关机"
+            };
+            PowerTimerTargetAtText = $"将于 {current.At:HH:mm:ss} 执行 {actionName}";
+            UpdatePowerTimerDisplay();
         }
     }
 
     private void UpdatePowerTimerDisplay()
     {
-        if (_powerTimerTargetTime == null) return;
-        var left = _powerTimerTargetTime.Value - DateTimeOffset.Now;
+        var current = _context.PowerTimer.Current;
+        if (current == null)
+        {
+            if (IsPowerTimerArmed)
+            {
+                IsPowerTimerArmed = false;
+                PowerTimerRemainingText = "--:--";
+            }
+            return;
+        }
+
+        IsPowerTimerArmed = true;
+        var left = current.At - DateTimeOffset.Now;
         if (left > TimeSpan.Zero)
         {
             int totalMins = (int)left.TotalMinutes;
             PowerTimerRemainingText = $"{totalMins:D2}:{left.Seconds:D2}";
         }
-    }
-
-    private static void ExecutePowerAction(string action)
-    {
-        try
+        else
         {
-            if (action.Contains("关机"))
-            {
-                Process.Start(new ProcessStartInfo("systemctl", "poweroff") { UseShellExecute = false, CreateNoWindow = true });
-            }
-            else if (action.Contains("重启"))
-            {
-                Process.Start(new ProcessStartInfo("systemctl", "reboot") { UseShellExecute = false, CreateNoWindow = true });
-            }
-            else if (action.Contains("睡眠"))
-            {
-                Process.Start(new ProcessStartInfo("systemctl", "suspend") { UseShellExecute = false, CreateNoWindow = true });
-            }
-            else if (action.Contains("锁屏"))
-            {
-                Process.Start(new ProcessStartInfo("loginctl", "lock-session") { UseShellExecute = false, CreateNoWindow = true });
-            }
+            PowerTimerRemainingText = "00:00";
         }
-        catch { }
     }
 
     private void SaveSetting(Func<PankinSettings, PankinSettings> update)
@@ -1051,7 +1165,14 @@ public partial class SettingsViewModel : ViewModelBase
     {
         try
         {
-            Process.Start(new ProcessStartInfo("notify-send", $"\"{title}\" \"{body}\"") { UseShellExecute = false, CreateNoWindow = true });
+            var psi = new ProcessStartInfo("notify-send")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            psi.ArgumentList.Add(title);
+            psi.ArgumentList.Add(body);
+            Process.Start(psi);
         }
         catch { }
     }

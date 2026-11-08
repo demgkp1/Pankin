@@ -5,10 +5,14 @@ using Avalonia.Input;
 using Pankin.Core.Selection;
 using Pankin.Desktop.ViewModels;
 
+using Pankin.Desktop.Services;
+
 namespace Pankin.Desktop.Views;
 
 public partial class SuperPanelWindow : Window
 {
+    private long _lastActivatedMs;
+
     public SuperPanelWindow()
     {
         InitializeComponent();
@@ -32,10 +36,15 @@ public partial class SuperPanelWindow : Window
             }
         };
 
+        Activated += (_, _) => _lastActivatedMs = Environment.TickCount64;
+        Opened += (_, _) => _lastActivatedMs = Environment.TickCount64;
+
         // 失焦/点击外部自动隐匿面板 (Hide-on-click-away)
         Deactivated += (_, _) =>
         {
-            if (IsVisible)
+            if (IsVisible &&
+                Environment.TickCount64 - _lastActivatedMs > 180 &&
+                DesktopAppContext.Instance.SettingsStore.Current.General.HideOnDeactivate)
             {
                 Hide();
             }
@@ -89,42 +98,45 @@ public partial class SuperPanelWindow : Window
             var work = screen.WorkingArea;
             const int margin = 8;
             const int offset = 12;
+            const int shadowPadding = 12;
 
-            // X 轴翻转与计算
+            // X 轴翻转与计算（考虑 12px 投影留白，确保可见面板精准贴合光标）
+            int visibleWidth = winWidth - shadowPadding * 2;
             int targetX;
-            if (mouseX + offset + winWidth <= work.X + work.Width - margin)
+            if (mouseX + offset + visibleWidth <= work.X + work.Width - margin)
             {
-                targetX = (int)mouseX + offset;
+                targetX = (int)mouseX + offset - shadowPadding;
             }
-            else if (mouseX - offset - winWidth >= work.X + margin)
+            else if (mouseX - offset - visibleWidth >= work.X + margin)
             {
-                targetX = (int)mouseX - offset - winWidth;
+                targetX = (int)mouseX - offset - winWidth + shadowPadding;
             }
             else
             {
-                targetX = Math.Clamp((int)mouseX + offset, work.X + margin, Math.Max(work.X + margin, work.X + work.Width - winWidth - margin));
+                targetX = Math.Clamp((int)mouseX + offset - shadowPadding, work.X + margin - shadowPadding, Math.Max(work.X + margin - shadowPadding, work.X + work.Width - winWidth - margin + shadowPadding));
             }
 
             // Y 轴翻转与计算
+            int visibleHeight = winHeight - shadowPadding * 2;
             int targetY;
-            if (mouseY + offset + winHeight <= work.Y + work.Height - margin)
+            if (mouseY + offset + visibleHeight <= work.Y + work.Height - margin)
             {
-                targetY = (int)mouseY + offset;
+                targetY = (int)mouseY + offset - shadowPadding;
             }
-            else if (mouseY - offset - winHeight >= work.Y + margin)
+            else if (mouseY - offset - visibleHeight >= work.Y + margin)
             {
-                targetY = (int)mouseY - offset - winHeight;
+                targetY = (int)mouseY - offset - winHeight + shadowPadding;
             }
             else
             {
-                targetY = Math.Clamp((int)mouseY + offset, work.Y + margin, Math.Max(work.Y + margin, work.Y + work.Height - winHeight - margin));
+                targetY = Math.Clamp((int)mouseY + offset - shadowPadding, work.Y + margin - shadowPadding, Math.Max(work.Y + margin - shadowPadding, work.Y + work.Height - winHeight - margin + shadowPadding));
             }
 
             Position = new PixelPoint(targetX, targetY);
         }
         else
         {
-            Position = new PixelPoint((int)mouseX + 12, (int)mouseY + 12);
+            Position = new PixelPoint((int)mouseX, (int)mouseY);
         }
     }
 }

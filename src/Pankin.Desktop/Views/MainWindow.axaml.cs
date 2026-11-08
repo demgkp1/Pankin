@@ -1,21 +1,60 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Pankin.Desktop.Services;
 using Pankin.Desktop.ViewModels;
 
 namespace Pankin.Desktop.Views;
 
 public partial class MainWindow : Window
 {
+    private long _lastActivatedMs;
+    private readonly DispatcherTimer _positionDebounceTimer;
+    private bool _hasBeenShown;
+
     public MainWindow()
     {
         InitializeComponent();
+
+        _positionDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _positionDebounceTimer.Tick += (_, _) =>
+        {
+            _positionDebounceTimer.Stop();
+            SaveWindowPositionIfNeeded();
+        };
 
         TopDragArea.PointerPressed += (_, e) =>
         {
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
                 BeginMoveDrag(e);
+            }
+        };
+
+        PointerPressed += (_, e) =>
+        {
+            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                if (e.Source is Avalonia.Visual visual)
+                {
+                    bool isInteractive = false;
+                    var current = visual;
+                    while (current != null && current != this)
+                    {
+                        if (current is Button or TextBox or ListBoxItem or MenuItem or ToggleSwitch or Slider)
+                        {
+                            isInteractive = true;
+                            break;
+                        }
+                        current = current.GetVisualParent();
+                    }
+                    if (!isInteractive)
+                    {
+                        BeginMoveDrag(e);
+                    }
+                }
             }
         };
 
@@ -27,7 +66,75 @@ public partial class MainWindow : Window
                 vm.SelectedItem.ExecuteCommand.Execute(null);
             }
         };
-        Opened += (_, _) => FocusSearchInput();
+
+        Activated += (_, _) =>
+        {
+            _hasBeenShown = true;
+            _lastActivatedMs = Environment.TickCount64;
+        };
+
+        Opened += (_, _) =>
+        {
+            _hasBeenShown = true;
+            _lastActivatedMs = Environment.TickCount64;
+            FocusSearchInput();
+        };
+
+        Closing += (_, _) => SaveWindowPositionIfNeeded();
+
+        Deactivated += (_, _) =>
+        {
+            if (IsVisible &&
+                Environment.TickCount64 - _lastActivatedMs > 180 &&
+                DesktopAppContext.Instance.SettingsStore.Current.General.HideOnDeactivate)
+            {
+                SaveWindowPositionIfNeeded();
+                Hide();
+            }
+        };
+
+        PositionChanged += (_, _) =>
+        {
+            if (IsVisible)
+            {
+                _positionDebounceTimer.Stop();
+                _positionDebounceTimer.Start();
+            }
+        };
+    }
+
+    public void SaveWindowPositionIfNeeded()
+    {
+        _positionDebounceTimer.Stop();
+        if (!IsVisible && !_hasBeenShown) return;
+
+        var settingsStore = DesktopAppContext.Instance.SettingsStore;
+        var general = settingsStore.Current.General;
+        if (general.RememberWindowPosition)
+        {
+            int x = Position.X;
+            int y = Position.Y;
+            if (x > -10000 && y > -10000 && x < 30000 && y < 30000)
+            {
+                if (general.LauncherPositionX != x || general.LauncherPositionY != y)
+                {
+                    settingsStore.Update(s => s with
+                    {
+                        General = s.General with
+                        {
+                            LauncherPositionX = x,
+                            LauncherPositionY = y
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    public new void Hide()
+    {
+        SaveWindowPositionIfNeeded();
+        base.Hide();
     }
 
     public void FocusSearchInput()

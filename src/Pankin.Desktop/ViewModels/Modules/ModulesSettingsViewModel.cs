@@ -70,7 +70,6 @@ public sealed partial class ModuleItemViewModel : ObservableObject
     {
         ModuleIds.Launcher => "应用与文件启动器",
         ModuleIds.Clipboard => "剪贴板历史管理器",
-        ModuleIds.Gestures => "鼠标全局手势",
         ModuleIds.SuperPanel => "划词超级面板",
         ModuleIds.Ai => "AI 智能问答与翻译",
         ModuleIds.FolderJump => "文件夹穿梭跳转",
@@ -83,7 +82,6 @@ public sealed partial class ModuleItemViewModel : ObservableObject
     {
         ModuleIds.Launcher => LucideIcons.Search,
         ModuleIds.Clipboard => LucideIcons.Clipboard,
-        ModuleIds.Gestures => LucideIcons.Mouse,
         ModuleIds.SuperPanel => LucideIcons.Wand,
         ModuleIds.Ai => LucideIcons.Ai,
         ModuleIds.FolderJump => LucideIcons.Folder,
@@ -96,7 +94,6 @@ public sealed partial class ModuleItemViewModel : ObservableObject
     {
         ModuleIds.Launcher => "快速搜索应用、文件、计算器与终端命令，支持首字母拼音快速定位",
         ModuleIds.Clipboard => "记录剪贴板历史内容，支持纯文本、图像与文件片段快捷粘贴与置顶",
-        ModuleIds.Gestures => "按住鼠标右键划动即可触发后退、关闭标签页或唤起应用面板",
         ModuleIds.SuperPanel => "选中文本或按下快捷键就近弹出快捷操作面板，支持 AI 翻译与搜索",
         ModuleIds.Ai => "接入大语言模型提供多轮流式会话与高保真段落中英互译",
         ModuleIds.FolderJump => "文件对话框快速跳转到常用与当前激活的文件夹目录",

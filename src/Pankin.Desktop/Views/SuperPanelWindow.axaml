@@ -5,10 +5,10 @@
         xmlns:loc="using:Pankin.Desktop.Localization"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="460" d:DesignHeight="480"
+        mc:Ignorable="d" d:DesignWidth="484" d:DesignHeight="504"
         x:Class="Pankin.Desktop.Views.SuperPanelWindow"
         x:DataType="vm:SuperPanelViewModel"
-        Width="460" Height="480"
+        Width="484" Height="504"
         ShowInTaskbar="False"
         SystemDecorations="None"
         Topmost="True"
@@ -20,57 +20,55 @@
         Title="{loc:Loc SuperPanel_Title}">
 
     <Window.Styles>
+        <!-- 底部动作按钮 -->
         <Style Selector="Button.super-action-btn">
-            <Setter Property="Background" Value="#10FFFFFF" />
+            <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="4,8" />
-            <Setter Property="Margin" Value="2" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Control}" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Margin" Value="1,0" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
         </Style>
-        <Style Selector="Button.super-action-btn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#253B82F6" />
+        <Style Selector="Button.super-action-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceHover}" />
+        </Style>
+        <Style Selector="Button.super-action-btn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfacePressed}" />
         </Style>
     </Window.Styles>
 
-    <!-- 复合磨砂玻璃底层（98.5% 不透明炭灰基底，彻底遮挡底层窗口文字） -->
-    <Border CornerRadius="{Binding PanelCornerRadius}"
-            Background="#FC1B1C22"
-            BorderBrush="#32FFFFFF"
-            BorderThickness="1"
-            BoxShadow="0 16 40 0 #66000000"
-            ClipToBounds="True">
+    <!-- 主玻璃面板（留白 12px 用于呈现投影） -->
+    <Border Classes="frosted-panel"
+            Margin="12"
+            CornerRadius="{Binding PanelCornerRadius}">
         <Panel>
-            <!-- 叠加模拟原版 Pane-Win 磨砂漫反射柔和多点微光 -->
-            <Border CornerRadius="{Binding PanelCornerRadius}" IsHitTestVisible="False">
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                        <GradientStop Offset="0.0" Color="#1E3B5998" />
-                        <GradientStop Offset="0.5" Color="#08FFFFFF" />
-                        <GradientStop Offset="1.0" Color="#241E293B" />
-                    </LinearGradientBrush>
-                </Border.Background>
-            </Border>
+            <!-- 顶部柔和高光 -->
+            <Border Classes="sheen" CornerRadius="{Binding PanelCornerRadius}" />
 
-            <Grid RowDefinitions="Auto,*,Auto" Margin="0,4,0,0">
-                <!-- 顶部选区引用区 (复刻 super-dark.png) -->
+            <Grid RowDefinitions="Auto,*,Auto">
+                <!-- 顶部选区引用区与关闭操作 -->
                 <Border Grid.Row="0"
                         Name="TopDragArea"
                         Background="Transparent"
-                        Padding="14,10,14,6">
+                        Padding="16,12,12,6">
                     <Grid ColumnDefinitions="*,Auto">
                         <Border Grid.Column="0"
                                 Padding="10,2,0,2"
                                 BorderThickness="3,0,0,0"
-                                BorderBrush="#3B82F6">
-                            <StackPanel Spacing="2">
+                                BorderBrush="{DynamicResource Pk.Accent}">
+                            <StackPanel Spacing="3">
                                 <TextBlock Text="{Binding SourceAppName, StringFormat='来源: {0}'}"
                                            IsVisible="{Binding SourceAppName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                           FontSize="10"
-                                           Foreground="#803B82F6"
-                                           FontWeight="SemiBold" />
+                                           Classes="caption"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Pk.AccentText}" />
                                 <TextBlock Text="{Binding SourceText}"
-                                           FontSize="12"
-                                           Foreground="#A3FFFFFF"
+                                           Classes="body"
+                                           Foreground="{DynamicResource Pk.TextSecondary}"
                                            LineHeight="18"
                                            MaxLines="2"
                                            TextTrimming="CharacterEllipsis"
@@ -78,75 +76,64 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- 关闭按钮 (矢量 X) -->
+                        <!-- 关闭按钮 -->
                         <Button Grid.Column="1"
                                 Name="CloseBtn"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Padding="6,4"
-                                VerticalAlignment="Top">
+                                Classes="icon-btn"
+                                VerticalAlignment="Top"
+                                Margin="6,0,0,0"
+                                ToolTip.Tip="{loc:Loc Common_Cancel}">
                             <Path Data="M18 6L6 18 M6 6l12 12"
-                                  Width="12" Height="12"
+                                  Width="13" Height="13"
                                   Stretch="Uniform"
-                                  Stroke="#80FFFFFF"
-                                  StrokeThickness="2"
+                                  StrokeThickness="1.75"
                                   StrokeJoin="Round"
-                                  StrokeLineCap="Round"
-                                  Fill="Transparent" />
+                                  StrokeLineCap="Round" />
                         </Button>
                     </Grid>
                 </Border>
 
-                <!-- 中部结果卡片区 (圆角 14, Background #14FFFFFF) -->
+                <!-- 中部结果卡片区 -->
                 <Border Grid.Row="1"
-                        Background="#14FFFFFF"
-                        BorderBrush="#18FFFFFF"
-                        BorderThickness="1"
-                        CornerRadius="14"
-                        Padding="12"
-                        Margin="14,4,14,8">
+                        Classes="card"
+                        Margin="14,4,14,8"
+                        Padding="14">
                     <Grid RowDefinitions="Auto,*,Auto">
                         <!-- 卡片顶部状态行 -->
                         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
                             <!-- 模式状态徽章 -->
                             <Border Grid.Column="0"
-                                    Background="#203B82F6"
-                                    BorderBrush="#403B82F6"
-                                    BorderThickness="1"
-                                    CornerRadius="5"
-                                    Padding="6,2"
+                                    Background="{DynamicResource Pk.AccentSoft}"
+                                    CornerRadius="{StaticResource Pk.Radius.Control}"
+                                    Padding="8,3"
                                     VerticalAlignment="Center">
                                 <TextBlock Text="{Binding ModeTitle}"
-                                           FontSize="10"
+                                           FontSize="10.5"
                                            FontWeight="SemiBold"
-                                           Foreground="#93C5FD" />
+                                           Foreground="{DynamicResource Pk.AccentText}" />
                             </Border>
 
                             <!-- 语言与模型信息 -->
                             <TextBlock Grid.Column="1"
                                        Text="{Binding CurrentModelName, StringFormat='中 ↔ 英 · {0}'}"
-                                       FontSize="10"
-                                       Foreground="#70FFFFFF"
+                                       Classes="caption"
                                        VerticalAlignment="Center"
-                                       Margin="8,0,0,0"
+                                       Margin="10,0,0,0"
                                        TextTrimming="CharacterEllipsis" />
 
-                            <!-- 抽屉切换按钮 (矢量滑块图标) -->
+                            <!-- 抽屉切换按钮 -->
                             <Button Grid.Column="2"
                                     Command="{Binding ToggleSettingsCommand}"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    Padding="6,2"
+                                    Classes="icon-btn"
+                                    Width="28" Height="28"
                                     VerticalAlignment="Center"
                                     ToolTip.Tip="设置 AI 模型参数">
                                 <Path Data="M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M1 14h6 M9 8h6 M17 16h6"
-                                      Width="12" Height="12"
+                                      Width="13" Height="13"
                                       Stretch="Uniform"
-                                      Stroke="#80FFFFFF"
                                       StrokeThickness="1.75"
                                       StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent" />
+                                      StrokeLineCap="Round" />
                             </Button>
                         </Grid>
 
@@ -157,16 +144,15 @@
                                           VerticalScrollBarVisibility="Auto">
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="{Binding TranslationResult}"
-                                               FontSize="13"
-                                               Foreground="#F5FFFFFF"
-                                               LineHeight="20"
+                                               Classes="body"
+                                               LineHeight="21"
                                                TextWrapping="Wrap" />
 
                                     <ProgressBar IsIndeterminate="True"
                                                  IsVisible="{Binding IsTranslating}"
                                                  Height="2"
-                                                 Background="#10FFFFFF"
-                                                 Foreground="#3B82F6"
+                                                 Background="{DynamicResource Pk.SurfaceInput}"
+                                                 Foreground="{DynamicResource Pk.Accent}"
                                                  Margin="0,4" />
                                 </StackPanel>
                             </ScrollViewer>
@@ -178,18 +164,17 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:ChatMessageItem">
                                                 <Border Background="{Binding BackgroundBrush}"
-                                                        CornerRadius="8"
-                                                        Padding="10,6"
+                                                        CornerRadius="{StaticResource Pk.Radius.Control}"
+                                                        Padding="10,7"
                                                         Margin="0,3">
-                                                    <StackPanel Spacing="2">
+                                                    <StackPanel Spacing="3">
                                                         <TextBlock Text="{Binding RoleTitle}"
-                                                                   FontSize="10"
+                                                                   FontSize="10.5"
                                                                    FontWeight="SemiBold"
                                                                    Foreground="{Binding RoleColor}" />
                                                         <TextBlock Text="{Binding Content}"
-                                                                   FontSize="12"
-                                                                   Foreground="#F0FFFFFF"
-                                                                   LineHeight="18"
+                                                                   Classes="body"
+                                                                   LineHeight="19"
                                                                    TextWrapping="Wrap" />
                                                     </StackPanel>
                                                 </Border>
@@ -200,37 +185,31 @@
 
                                 <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
                                     <TextBox Grid.Column="0"
+                                             Classes="pk-input"
                                              Text="{Binding ChatInput, Mode=TwoWay}"
                                              Watermark="{loc:Loc SuperPanel_ChatPlaceholder}"
-                                             FontSize="12"
-                                             Background="#14FFFFFF"
-                                             BorderThickness="0"
-                                             CornerRadius="8"
-                                             Padding="10,6" />
+                                             FontSize="12" />
 
                                     <Button Grid.Column="1"
                                             Command="{Binding SendChatAsyncCommand}"
                                             IsVisible="{Binding !IsStreaming}"
-                                            Background="#253B82F6"
-                                            Foreground="#FFFFFF"
-                                            BorderThickness="0"
-                                            CornerRadius="8"
-                                            Padding="12,6"
+                                            Classes="accent"
+                                            Padding="14,7"
                                             FontSize="12"
-                                            Margin="4,0,0,0">
+                                            Margin="6,0,0,0">
                                         <TextBlock Text="{loc:Loc SuperPanel_Send}" />
                                     </Button>
 
                                     <Button Grid.Column="1"
                                             Command="{Binding CancelStreamingCommand}"
                                             IsVisible="{Binding IsStreaming}"
-                                            Background="#25EF4444"
-                                            Foreground="#F87171"
+                                            Background="{DynamicResource Pk.DangerSoft}"
+                                            Foreground="{DynamicResource Pk.Danger}"
                                             BorderThickness="0"
-                                            CornerRadius="8"
-                                            Padding="12,6"
+                                            CornerRadius="{StaticResource Pk.Radius.Control}"
+                                            Padding="14,7"
                                             FontSize="12"
-                                            Margin="4,0,0,0">
+                                            Margin="6,0,0,0">
                                         <TextBlock Text="{loc:Loc Common_Cancel}" />
                                     </Button>
                                 </Grid>
@@ -240,19 +219,19 @@
                         <!-- 折叠式 AI 设置抽屉 -->
                         <Border Grid.Row="2"
                                 IsVisible="{Binding IsSettingsExpanded}"
-                                Background="#181A22"
-                                BorderBrush="#25FFFFFF"
+                                Background="{DynamicResource Pk.SurfaceSolid}"
+                                BorderBrush="{DynamicResource Pk.StrokeStrong}"
                                 BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="10"
+                                CornerRadius="{StaticResource Pk.Radius.Control}"
+                                Padding="12"
                                 Margin="0,8,0,0">
-                            <StackPanel Spacing="6">
+                            <StackPanel Spacing="8">
                                 <Grid ColumnDefinitions="Auto,*,Auto">
-                                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_Provider}" FontSize="10" Foreground="#80FFFFFF" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_Provider}" Classes="caption" VerticalAlignment="Center" />
                                     <ComboBox Grid.Column="1"
                                               ItemsSource="{Binding Presets}"
                                               SelectedItem="{Binding SelectedPreset, Mode=TwoWay}"
-                                              FontSize="10" Height="24" Margin="4,0" VerticalAlignment="Center">
+                                              FontSize="11" Height="28" Margin="8,0" VerticalAlignment="Center">
                                         <ComboBox.ItemTemplate>
                                             <DataTemplate x:DataType="ai:AiPreset">
                                                 <TextBlock Text="{Binding Name}" />
@@ -261,218 +240,248 @@
                                     </ComboBox>
                                     <Button Grid.Column="2"
                                             Command="{Binding SaveAiSettingsCommand}"
-                                            Background="#253B82F6"
-                                            Foreground="#FFFFFF"
-                                            BorderThickness="0"
-                                            CornerRadius="4"
-                                            Padding="8,3"
-                                            FontSize="10">
+                                            Classes="accent"
+                                            Padding="10,4"
+                                            FontSize="11">
                                         <TextBlock Text="{loc:Loc Common_Save}" />
                                     </Button>
                                 </Grid>
 
-                                <Grid ColumnDefinitions="50,*">
-                                    <TextBlock Grid.Column="0" Text="{loc:Loc SuperPanel_ApiBase}" FontSize="10" Foreground="#60FFFFFF" VerticalAlignment="Center" />
-                                    <TextBox Grid.Column="1" Text="{Binding ConfigBaseUrl, Mode=TwoWay}" FontSize="10" Height="22" Background="#10FFFFFF" BorderThickness="0" />
+                                <Grid ColumnDefinitions="60,*">
+                                    <TextBlock Grid.Column="0" Text="{loc:Loc SuperPanel_ApiBase}" Classes="caption" VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1" Classes="pk-input" Text="{Binding ConfigBaseUrl, Mode=TwoWay}" FontSize="11" Height="26" Padding="6,2" />
                                 </Grid>
 
-                                <Grid ColumnDefinitions="50,*">
-                                    <TextBlock Grid.Column="0" Text="{loc:Loc SuperPanel_ApiKey}" FontSize="10" Foreground="#60FFFFFF" VerticalAlignment="Center" />
-                                    <TextBox Grid.Column="1" Text="{Binding ConfigApiKey, Mode=TwoWay}" PasswordChar="•" FontSize="10" Height="22" Background="#10FFFFFF" BorderThickness="0" Watermark="API Key" />
+                                <Grid ColumnDefinitions="60,*">
+                                    <TextBlock Grid.Column="0" Text="{loc:Loc SuperPanel_ApiKey}" Classes="caption" VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1" Classes="pk-input" Text="{Binding ConfigApiKey, Mode=TwoWay}" PasswordChar="•" FontSize="11" Height="26" Padding="6,2" Watermark="API Key" />
                                 </Grid>
 
-                                <Grid ColumnDefinitions="50,*">
-                                    <TextBlock Grid.Column="0" Text="{loc:Loc SuperPanel_Model}" FontSize="10" Foreground="#60FFFFFF" VerticalAlignment="Center" />
-                                    <TextBox Grid.Column="1" Text="{Binding ConfigModel, Mode=TwoWay}" FontSize="10" Height="22" Background="#10FFFFFF" BorderThickness="0" />
+                                <Grid ColumnDefinitions="60,*">
+                                    <TextBlock Grid.Column="0" Text="{loc:Loc SuperPanel_Model}" Classes="caption" VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1" Classes="pk-input" Text="{Binding ConfigModel, Mode=TwoWay}" FontSize="11" Height="26" Padding="6,2" />
                                 </Grid>
 
                                 <TextBlock Text="{Binding SettingsStatusMessage}"
                                            IsVisible="{Binding SettingsStatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                           FontSize="10"
-                                           Foreground="#34D399"
+                                           Classes="caption"
+                                           Foreground="{DynamicResource Pk.Success}"
                                            HorizontalAlignment="Center" />
                             </StackPanel>
                         </Border>
                     </Grid>
                 </Border>
 
-                <!-- 底部 6 动作磁贴栏 (1:1 复刻 super-dark.png，统一矢量线性描边) -->
+                <!-- 底部快捷动作磁贴栏 -->
                 <Border Grid.Row="2"
-                        Padding="4,0,4,10">
+                        Background="{DynamicResource Pk.SurfaceFooter}"
+                        BorderBrush="{DynamicResource Pk.Divider}"
+                        BorderThickness="0,1,0,0"
+                        Padding="8,6,8,8">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
-                        <Button Classes="super-action-btn"
-                                Command="{Binding CopyTranslationResultAsyncCommand}"
-                                ToolTip.Tip="复制翻译结果">
-                            <StackPanel HorizontalAlignment="Center" Spacing="4">
-                                <Path Data="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"
-                                      Width="13" Height="13"
-                                      Stretch="Uniform"
-                                      Stroke="#93C5FD"
-                                      StrokeThickness="1.75"
-                                      StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent"
-                                      HorizontalAlignment="Center" />
-                                <TextBlock Text="{loc:Loc SuperPanel_CopyTranslation}" FontSize="10" Foreground="#D0FFFFFF" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+                            <Button Classes="super-action-btn"
+                                    Command="{Binding CopyTranslationResultAsyncCommand}"
+                                    ToolTip.Tip="复制翻译结果">
+                                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                                    <Path Data="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"
+                                          Width="14" Height="14"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource Pk.Accent}"
+                                          StrokeThickness="1.75"
+                                          StrokeJoin="Round"
+                                          StrokeLineCap="Round"
+                                          Fill="Transparent"
+                                          HorizontalAlignment="Center" />
+                                    <TextBlock Text="{loc:Loc SuperPanel_CopyTranslation}"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Pk.TextSecondary}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
 
-                        <Button Classes="super-action-btn"
-                                Command="{Binding SwitchToTranslateCommand}"
-                                ToolTip.Tip="{loc:Loc SuperPanel_Action_Translate}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="4">
-                                <Path Data="M5 8l6 6 M4 14l6-6 2-3 M2 5h12 M7 2h1 M22 22l-5-10-5 10 M14 18h6"
-                                      Width="13" Height="13"
-                                      Stretch="Uniform"
-                                      Stroke="#93C5FD"
-                                      StrokeThickness="1.75"
-                                      StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent"
-                                      HorizontalAlignment="Center" />
-                                <TextBlock Text="{loc:Loc SuperPanel_Action_Translate}" FontSize="10" Foreground="#D0FFFFFF" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+                            <Button Classes="super-action-btn"
+                                    Command="{Binding SwitchToTranslateCommand}"
+                                    ToolTip.Tip="{loc:Loc SuperPanel_Action_Translate}">
+                                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                                    <Path Data="M5 8l6 6 M4 14l6-6 2-3 M2 5h12 M7 2h1 M22 22l-5-10-5 10 M14 18h6"
+                                          Width="14" Height="14"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource Pk.Accent}"
+                                          StrokeThickness="1.75"
+                                          StrokeJoin="Round"
+                                          StrokeLineCap="Round"
+                                          Fill="Transparent"
+                                          HorizontalAlignment="Center" />
+                                    <TextBlock Text="{loc:Loc SuperPanel_Action_Translate}"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Pk.TextSecondary}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
 
-                        <Button Classes="super-action-btn"
-                                Command="{Binding SwitchToChatCommand}"
-                                ToolTip.Tip="{loc:Loc SuperPanel_Action_Chat}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="4">
-                                <Path Data="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"
-                                      Width="13" Height="13"
-                                      Stretch="Uniform"
-                                      Stroke="#93C5FD"
-                                      StrokeThickness="1.75"
-                                      StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent"
-                                      HorizontalAlignment="Center" />
-                                <TextBlock Text="{loc:Loc SuperPanel_Action_Chat}" FontSize="10" Foreground="#D0FFFFFF" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+                            <Button Classes="super-action-btn"
+                                    Command="{Binding SwitchToChatCommand}"
+                                    ToolTip.Tip="{loc:Loc SuperPanel_Action_Chat}">
+                                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                                    <Path Data="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"
+                                          Width="14" Height="14"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource Pk.Accent}"
+                                          StrokeThickness="1.75"
+                                          StrokeJoin="Round"
+                                          StrokeLineCap="Round"
+                                          Fill="Transparent"
+                                          HorizontalAlignment="Center" />
+                                    <TextBlock Text="{loc:Loc SuperPanel_Action_Chat}"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Pk.TextSecondary}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
 
-                        <Button Classes="super-action-btn"
-                                Command="{Binding SummarizeTextCommand}"
-                                ToolTip.Tip="{loc:Loc SuperPanel_Action_Summary}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="4">
-                                <Path Data="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8"
-                                      Width="13" Height="13"
-                                      Stretch="Uniform"
-                                      Stroke="#93C5FD"
-                                      StrokeThickness="1.75"
-                                      StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent"
-                                      HorizontalAlignment="Center" />
-                                <TextBlock Text="{loc:Loc SuperPanel_Action_Summary}" FontSize="10" Foreground="#D0FFFFFF" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+                            <Button Classes="super-action-btn"
+                                    Command="{Binding SummarizeTextCommand}"
+                                    ToolTip.Tip="{loc:Loc SuperPanel_Action_Summary}">
+                                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                                    <Path Data="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8"
+                                          Width="14" Height="14"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource Pk.Accent}"
+                                          StrokeThickness="1.75"
+                                          StrokeJoin="Round"
+                                          StrokeLineCap="Round"
+                                          Fill="Transparent"
+                                          HorizontalAlignment="Center" />
+                                    <TextBlock Text="{loc:Loc SuperPanel_Action_Summary}"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Pk.TextSecondary}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
 
-                        <Button Classes="super-action-btn"
-                                Command="{Binding ExplainTextCommand}"
-                                ToolTip.Tip="{loc:Loc SuperPanel_Action_Explain}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="4">
-                                <Path Data="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z M9 21h6"
-                                      Width="13" Height="13"
-                                      Stretch="Uniform"
-                                      Stroke="#93C5FD"
-                                      StrokeThickness="1.75"
-                                      StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent"
-                                      HorizontalAlignment="Center" />
-                                <TextBlock Text="{loc:Loc SuperPanel_Action_Explain}" FontSize="10" Foreground="#D0FFFFFF" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+                            <Button Classes="super-action-btn"
+                                    Command="{Binding ExplainTextCommand}"
+                                    ToolTip.Tip="{loc:Loc SuperPanel_Action_Explain}">
+                                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                                    <Path Data="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z M9 21h6"
+                                          Width="14" Height="14"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource Pk.Accent}"
+                                          StrokeThickness="1.75"
+                                          StrokeJoin="Round"
+                                          StrokeLineCap="Round"
+                                          Fill="Transparent"
+                                          HorizontalAlignment="Center" />
+                                    <TextBlock Text="{loc:Loc SuperPanel_Action_Explain}"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Pk.TextSecondary}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
 
-                        <Button Classes="super-action-btn"
-                                Command="{Binding CopySourceTextAsyncCommand}"
-                                ToolTip.Tip="{loc:Loc SuperPanel_CopySource}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="4">
-                                <Path Data="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"
-                                      Width="13" Height="13"
-                                      Stretch="Uniform"
-                                      Stroke="#93C5FD"
-                                      StrokeThickness="1.75"
-                                      StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent"
-                                      HorizontalAlignment="Center" />
-                                <TextBlock Text="{loc:Loc SuperPanel_CopySource}" FontSize="10" Foreground="#D0FFFFFF" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+                            <Button Classes="super-action-btn"
+                                    Command="{Binding CopySourceTextAsyncCommand}"
+                                    ToolTip.Tip="{loc:Loc SuperPanel_CopySource}">
+                                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                                    <Path Data="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"
+                                          Width="14" Height="14"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource Pk.Accent}"
+                                          StrokeThickness="1.75"
+                                          StrokeJoin="Round"
+                                          StrokeLineCap="Round"
+                                          Fill="Transparent"
+                                          HorizontalAlignment="Center" />
+                                    <TextBlock Text="{loc:Loc SuperPanel_CopySource}"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Pk.TextSecondary}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
 
-                        <Button Classes="super-action-btn"
-                                Command="{Binding SearchWebCommand}"
-                                ToolTip.Tip="{loc:Loc SuperPanel_Action_Search}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="4">
-                                <Path Data="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35"
-                                      Width="13" Height="13"
-                                      Stretch="Uniform"
-                                      Stroke="#93C5FD"
-                                      StrokeThickness="1.75"
-                                      StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent"
-                                      HorizontalAlignment="Center" />
-                                <TextBlock Text="{loc:Loc SuperPanel_Action_Search}" FontSize="10" Foreground="#D0FFFFFF" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+                            <Button Classes="super-action-btn"
+                                    Command="{Binding SearchWebCommand}"
+                                    ToolTip.Tip="{loc:Loc SuperPanel_Action_Search}">
+                                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                                    <Path Data="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35"
+                                          Width="14" Height="14"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource Pk.Accent}"
+                                          StrokeThickness="1.75"
+                                          StrokeJoin="Round"
+                                          StrokeLineCap="Round"
+                                          Fill="Transparent"
+                                          HorizontalAlignment="Center" />
+                                    <TextBlock Text="{loc:Loc SuperPanel_Action_Search}"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Pk.TextSecondary}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
 
-                        <Button Classes="super-action-btn"
-                                Command="{Binding OpenUrlCommand}"
-                                IsVisible="{Binding IsUrl}"
-                                ToolTip.Tip="{loc:Loc SuperPanel_Action_OpenLink}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="4">
-                                <Path Data="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15 3h6v6 M10 14L21 3"
-                                      Width="13" Height="13"
-                                      Stretch="Uniform"
-                                      Stroke="#93C5FD"
-                                      StrokeThickness="1.75"
-                                      StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent"
-                                      HorizontalAlignment="Center" />
-                                <TextBlock Text="{loc:Loc SuperPanel_Action_OpenLink}" FontSize="10" Foreground="#D0FFFFFF" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+                            <Button Classes="super-action-btn"
+                                    Command="{Binding OpenUrlCommand}"
+                                    IsVisible="{Binding IsUrl}"
+                                    ToolTip.Tip="{loc:Loc SuperPanel_Action_OpenLink}">
+                                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                                    <Path Data="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15 3h6v6 M10 14L21 3"
+                                          Width="14" Height="14"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource Pk.Accent}"
+                                          StrokeThickness="1.75"
+                                          StrokeJoin="Round"
+                                          StrokeLineCap="Round"
+                                          Fill="Transparent"
+                                          HorizontalAlignment="Center" />
+                                    <TextBlock Text="{loc:Loc SuperPanel_Action_OpenLink}"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Pk.TextSecondary}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
 
-                        <Button Classes="super-action-btn"
-                                Command="{Binding OpenFileOrFolderCommand}"
-                                IsVisible="{Binding IsFilePath}"
-                                ToolTip.Tip="{loc:Loc SuperPanel_Action_OpenPath}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="4">
-                                <Path Data="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-                                      Width="13" Height="13"
-                                      Stretch="Uniform"
-                                      Stroke="#93C5FD"
-                                      StrokeThickness="1.75"
-                                      StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent"
-                                      HorizontalAlignment="Center" />
-                                <TextBlock Text="{loc:Loc SuperPanel_Action_OpenPath}" FontSize="10" Foreground="#D0FFFFFF" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+                            <Button Classes="super-action-btn"
+                                    Command="{Binding OpenFileOrFolderCommand}"
+                                    IsVisible="{Binding IsFilePath}"
+                                    ToolTip.Tip="{loc:Loc SuperPanel_Action_OpenPath}">
+                                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                                    <Path Data="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                                          Width="14" Height="14"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource Pk.Accent}"
+                                          StrokeThickness="1.75"
+                                          StrokeJoin="Round"
+                                          StrokeLineCap="Round"
+                                          Fill="Transparent"
+                                          HorizontalAlignment="Center" />
+                                    <TextBlock Text="{loc:Loc SuperPanel_Action_OpenPath}"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Pk.TextSecondary}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
 
-                        <Button Classes="super-action-btn"
-                                Command="{Binding BatchRenameCommand}"
-                                IsVisible="{Binding CanBatchRename}"
-                                ToolTip.Tip="{loc:Loc SuperPanel_Action_BatchRename}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="4">
-                                <Path Data="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"
-                                      Width="13" Height="13"
-                                      Stretch="Uniform"
-                                      Stroke="#93C5FD"
-                                      StrokeThickness="1.75"
-                                      StrokeJoin="Round"
-                                      StrokeLineCap="Round"
-                                      Fill="Transparent"
-                                      HorizontalAlignment="Center" />
-                                <TextBlock Text="{loc:Loc SuperPanel_Action_BatchRename}" FontSize="10" Foreground="#D0FFFFFF" HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+                            <Button Classes="super-action-btn"
+                                    Command="{Binding BatchRenameCommand}"
+                                    IsVisible="{Binding CanBatchRename}"
+                                    ToolTip.Tip="{loc:Loc SuperPanel_Action_BatchRename}">
+                                <StackPanel HorizontalAlignment="Center" Spacing="4">
+                                    <Path Data="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"
+                                          Width="14" Height="14"
+                                          Stretch="Uniform"
+                                          Stroke="{DynamicResource Pk.Accent}"
+                                          StrokeThickness="1.75"
+                                          StrokeJoin="Round"
+                                          StrokeLineCap="Round"
+                                          Fill="Transparent"
+                                          HorizontalAlignment="Center" />
+                                    <TextBlock Text="{loc:Loc SuperPanel_Action_BatchRename}"
+                                               FontSize="10.5"
+                                               Foreground="{DynamicResource Pk.TextSecondary}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
                     </ScrollViewer>
                 </Border>

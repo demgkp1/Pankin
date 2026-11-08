@@ -313,7 +313,16 @@ public partial class MainViewModel : ViewModelBase
         InitPinnedTools();
         LoadDefaultApps();
         BuildQuickActions();
+
+        _context.LauncherSearch.UsageChanged += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            InitPinnedTools();
+            LoadDefaultApps();
+        });
+        _context.SettingsStore.Changed += (_, _) => OnPropertyChanged(nameof(HotkeyDisplay));
     }
+
+    public string HotkeyDisplay => _context.SettingsStore.Current.Launcher.Hotkey;
 
     private void InitPinnedTools()
     {
@@ -353,15 +362,35 @@ public partial class MainViewModel : ViewModelBase
             RequestHideWindow?.Invoke();
             RequestOpenSettings?.Invoke(0);
         }, LucideIcons.Gear));
+
+        var pinnedIds = _context.SettingsStore.Current.Launcher.PinnedAppIds;
+        if (pinnedIds != null && pinnedIds.Count > 0)
+        {
+            var cached = _context.LauncherSearch.CachedApps;
+            foreach (var id in pinnedIds)
+            {
+                var app = cached.FirstOrDefault(a => string.Equals(a.Id, id, StringComparison.OrdinalIgnoreCase));
+                if (app != null)
+                {
+                    var icon = LinuxIconHelper.TryLoadIcon(app.Icon);
+                    var color = LinuxIconHelper.GetGradientColor(app.DisplayName);
+                    var glyph = LinuxIconHelper.GetGlyphChar(app.DisplayName);
+
+                    PinnedTools.Add(new AppTileItem(app.DisplayName, app.Exec, color, glyph, icon, () =>
+                    {
+                        RequestHideWindow?.Invoke();
+                        _ = _context.AppScanner.LaunchAppAsync(app);
+                        _context.LauncherSearch.RecordUsage(app.Id);
+                    }));
+                }
+            }
+        }
     }
 
     public void LoadDefaultApps()
     {
         RecentApps.Clear();
-        var cached = _context.LauncherSearch.CachedApps;
-        var apps = cached.Count > 0
-            ? cached.Take(14).ToList()
-            : _context.AppScanner.SearchApps(string.Empty, 14);
+        var apps = _context.LauncherSearch.GetRecentApps(14);
 
         foreach (var app in apps)
         {
@@ -615,16 +644,22 @@ public partial class MainViewModel : ViewModelBase
                       ?? _context.LauncherSearch.CachedApps.FirstOrDefault(a => a.Id == SelectedItem.CoreItem.Id);
             if (app != null)
             {
-                var icon = LinuxIconHelper.TryLoadIcon(app.Icon);
-                var color = LinuxIconHelper.GetGradientColor(app.DisplayName);
-                var glyph = LinuxIconHelper.GetGlyphChar(app.DisplayName);
-
-                PinnedTools.Add(new AppTileItem(app.DisplayName, app.Exec, color, glyph, icon, () =>
+                var currentPinned = _context.SettingsStore.Current.Launcher.PinnedAppIds.ToList();
+                if (currentPinned.Any(id => string.Equals(id, app.Id, StringComparison.OrdinalIgnoreCase)))
                 {
-                    RequestHideWindow?.Invoke();
-                    _ = _context.AppScanner.LaunchAppAsync(app);
-                    _context.LauncherSearch.RecordUsage(app.Id);
-                }));
+                    currentPinned.RemoveAll(id => string.Equals(id, app.Id, StringComparison.OrdinalIgnoreCase));
+                }
+                else
+                {
+                    currentPinned.Add(app.Id);
+                }
+
+                _context.SettingsStore.Update(s => s with
+                {
+                    Launcher = s.Launcher with { PinnedAppIds = currentPinned }
+                });
+
+                InitPinnedTools();
             }
         }
     }

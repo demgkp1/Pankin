@@ -7,10 +7,10 @@
         xmlns:loc="using:Pankin.Desktop.Localization"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="880" d:DesignHeight="600"
+        mc:Ignorable="d" d:DesignWidth="904" d:DesignHeight="624"
         x:Class="Pankin.Desktop.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
-        Width="880" Height="600"
+        Width="904" Height="624"
         ShowInTaskbar="True"
         SystemDecorations="None"
         Topmost="False"
@@ -22,98 +22,100 @@
         Title="{loc:Loc Settings_Title}">
 
     <Window.Styles>
+        <!-- 侧边栏导航按钮 -->
         <Style Selector="Button.nav-tab-btn">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#90FFFFFF" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextSecondary}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Padding" Value="12,8" />
-            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Control}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="Margin" Value="0,1" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" />
+                    <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="Button.nav-tab-btn Path">
-            <Setter Property="Stroke" Value="#80FFFFFF" />
+            <Setter Property="Stroke" Value="{DynamicResource Pk.TextSecondary}" />
         </Style>
-        <Style Selector="Button.nav-tab-btn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#15FFFFFF" />
-            <Setter Property="Foreground" Value="#FFFFFF" />
+        <Style Selector="Button.nav-tab-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceHover}" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
         </Style>
         <Style Selector="Button.nav-tab-btn:pointerover Path">
-            <Setter Property="Stroke" Value="#FFFFFF" />
+            <Setter Property="Stroke" Value="{DynamicResource Pk.Text}" />
         </Style>
         <Style Selector="Button.nav-tab-btn.selected">
-            <Setter Property="Background" Value="#253B82F6" />
-            <Setter Property="Foreground" Value="#93C5FD" />
-            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Background" Value="{DynamicResource Pk.AccentSoft}" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.AccentText}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
         <Style Selector="Button.nav-tab-btn.selected Path">
-            <Setter Property="Stroke" Value="#93C5FD" />
+            <Setter Property="Stroke" Value="{DynamicResource Pk.AccentText}" />
         </Style>
 
-        <Style Selector="Border.module-card">
-            <Setter Property="Background" Value="#14FFFFFF" />
-            <Setter Property="BorderBrush" Value="#22FFFFFF" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="12" />
-            <Setter Property="Padding" Value="14" />
-            <Setter Property="Margin" Value="6" />
-        </Style>
-
+        <!-- 快捷延时 pill 按钮 -->
         <Style Selector="Button.quick-pick-btn">
-            <Setter Property="Background" Value="#14FFFFFF" />
-            <Setter Property="BorderBrush" Value="#20FFFFFF" />
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceInput}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Stroke}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="#E0FFFFFF" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Control}" />
             <Setter Property="Padding" Value="12,6" />
             <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
         </Style>
-        <Style Selector="Button.quick-pick-btn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#253B82F6" />
-            <Setter Property="Foreground" Value="#93C5FD" />
+        <Style Selector="Button.quick-pick-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.AccentSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.AccentSoft}" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.AccentText}" />
         </Style>
     </Window.Styles>
 
-    <!-- 复合磨砂玻璃底层（98.5% 不透明炭灰基底，彻底遮挡底层窗口文字） -->
-    <Border CornerRadius="{Binding PanelCornerRadius}"
-            Background="#FC1B1C22"
-            BorderBrush="#32FFFFFF"
-            BorderThickness="1"
-            BoxShadow="0 16 40 0 #66000000"
-            ClipToBounds="True">
+    <!-- 主玻璃面板（留白 12px 用于呈现投影） -->
+    <Border Classes="frosted-panel"
+            Margin="12"
+            CornerRadius="{Binding PanelCornerRadius}">
         <Panel>
-            <!-- 叠加模拟原版 Pane-Win 磨砂漫反射柔和多点微光 -->
-            <Border CornerRadius="{Binding PanelCornerRadius}" IsHitTestVisible="False">
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                        <GradientStop Offset="0.0" Color="#1E3B5998" />
-                        <GradientStop Offset="0.5" Color="#08FFFFFF" />
-                        <GradientStop Offset="1.0" Color="#241E293B" />
-                    </LinearGradientBrush>
-                </Border.Background>
-            </Border>
+            <!-- 顶部柔和高光 -->
+            <Border Classes="sheen" CornerRadius="{Binding PanelCornerRadius}" />
 
-            <Grid ColumnDefinitions="200,*">
-                <!-- 左侧导航栏 (宽 200，严格对齐原版：停用的能力设置从左侧收起) -->
+            <Grid ColumnDefinitions="210,*">
+                <!-- 左侧导航栏 -->
                 <Border Grid.Column="0"
                         Name="LeftNavBorder"
-                        Background="#0D000000"
-                        BorderBrush="#18FFFFFF"
+                        Background="{DynamicResource Pk.SurfaceSidebar}"
+                        BorderBrush="{DynamicResource Pk.Divider}"
                         BorderThickness="0,0,1,0"
                         Padding="12,16">
                     <Grid RowDefinitions="Auto,*,Auto">
                         <!-- 顶部 Logo 与标题 -->
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="8,4,8,16">
-                            <Border Width="26" Height="26" Background="#2563EB" CornerRadius="6">
-                                <TextBlock Text="P" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="9" Margin="6,4,6,16">
+                            <Border Width="24" Height="24" CornerRadius="6" VerticalAlignment="Center">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                                        <GradientStop Offset="0" Color="#9B8CFF" />
+                                        <GradientStop Offset="1" Color="#5B6CFF" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <TextBlock Text="P" FontSize="12.5" FontWeight="Bold" Foreground="#FFFFFF"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
-                            <TextBlock Text="Pankin 设置" FontSize="15" FontWeight="SemiBold" Foreground="#F0FFFFFF" VerticalAlignment="Center" />
+                            <TextBlock Text="Pankin 设置" Classes="h2" VerticalAlignment="Center" />
                         </StackPanel>
 
-                        <!-- 选项卡列表 (Lucide 线性矢量图标，受模块开关控制显隐) -->
+                        <!-- 选项卡列表 -->
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding NavTabs}">
                                 <ItemsControl.ItemTemplate>
@@ -124,7 +126,7 @@
                                                 IsVisible="{Binding IsVisible}">
                                             <StackPanel Orientation="Horizontal" Spacing="10">
                                                 <Path Data="{Binding IconGeometry}"
-                                                      Width="16" Height="16"
+                                                      Width="15" Height="15"
                                                       Stretch="Uniform"
                                                       StrokeThickness="1.75"
                                                       StrokeJoin="Round"
@@ -132,7 +134,7 @@
                                                       Fill="Transparent"
                                                       VerticalAlignment="Center" />
                                                 <TextBlock Text="{Binding Name}"
-                                                           FontSize="13"
+                                                           FontSize="12.5"
                                                            VerticalAlignment="Center" />
                                             </StackPanel>
                                         </Button>
@@ -144,31 +146,26 @@
                         <!-- 底部版本信息 -->
                         <TextBlock Grid.Row="2"
                                    Text="Pankin v0.2.0 (Ubuntu 24.04)"
-                                   FontSize="11"
-                                   Foreground="#50FFFFFF"
+                                   Classes="caption"
                                    HorizontalAlignment="Center"
                                    Margin="0,8,0,0" />
                     </Grid>
                 </Border>
 
                 <!-- 右侧设置工作区 -->
-                <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="24,18,24,20">
-                    <!-- 顶部关闭按钮 (矢量 X 图标) -->
-                    <Grid Grid.Row="0" Margin="0,0,0,14">
+                <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="24,16,24,20">
+                    <!-- 顶部关闭按钮 -->
+                    <Grid Grid.Row="0" Margin="0,0,0,10">
                         <Button Name="CloseButton"
+                                Classes="icon-btn"
                                 HorizontalAlignment="Right"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Padding="8,6"
-                                CornerRadius="6">
+                                ToolTip.Tip="{loc:Loc Common_Cancel}">
                             <Path Data="M18 6L6 18 M6 6l12 12"
-                                  Width="12" Height="12"
+                                  Width="13" Height="13"
                                   Stretch="Uniform"
-                                  Stroke="#A0FFFFFF"
-                                  StrokeThickness="2"
+                                  StrokeThickness="1.75"
                                   StrokeJoin="Round"
-                                  StrokeLineCap="Round"
-                                  Fill="Transparent" />
+                                  StrokeLineCap="Round" />
                         </Button>
                     </Grid>
 
@@ -177,97 +174,148 @@
                         <Panel>
                             <!-- Tab 0: 通用 -->
                             <StackPanel Spacing="16" IsVisible="{Binding IsTabGeneral}">
-                                <TextBlock Text="{loc:Loc Settings_Appearance}" FontSize="16" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
+                                <TextBlock Text="{loc:Loc Settings_Appearance}" Classes="h1" />
 
                                 <Border Classes="module-card">
                                     <StackPanel Spacing="14">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{loc:Loc Settings_Language}" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="{loc:Loc Settings_Language_System}" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="{loc:Loc Settings_Language}" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="{loc:Loc Settings_Language_System}" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
-                                            <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableLanguages}" SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}" Width="140" FontSize="12" />
+                                            <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableLanguages}" SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}" Width="150" FontSize="12" />
                                         </Grid>
+
+                                        <Border Classes="divider-h" />
 
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{loc:Loc Settings_Theme}" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="{loc:Loc Settings_Theme_System}" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="{loc:Loc Settings_Theme}" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="{loc:Loc Settings_Theme_System}" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
-                                            <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableThemes}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" Width="140" FontSize="12" />
+                                            <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableThemes}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" Width="150" FontSize="12" />
                                         </Grid>
+
+                                        <Border Classes="divider-h" />
 
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{loc:Loc Settings_StartAtLogin}" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="{loc:Loc Settings_StartAtLogin_Description}" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="主题强调色" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="全局高亮、焦点边框与活动项强调配色" Classes="caption" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <Button Background="#8B8DFF" Width="26" Height="26" CornerRadius="13" Padding="0" Command="{Binding SelectAccentColorCommand}" CommandParameter="#8B8DFF" ToolTip.Tip="靛紫" />
+                                                <Button Background="#5874C9" Width="26" Height="26" CornerRadius="13" Padding="0" Command="{Binding SelectAccentColorCommand}" CommandParameter="#5874C9" ToolTip.Tip="雾蓝" />
+                                                <Button Background="#17958B" Width="26" Height="26" CornerRadius="13" Padding="0" Command="{Binding SelectAccentColorCommand}" CommandParameter="#17958B" ToolTip.Tip="青碧" />
+                                                <Button Background="#5F8F4E" Width="26" Height="26" CornerRadius="13" Padding="0" Command="{Binding SelectAccentColorCommand}" CommandParameter="#5F8F4E" ToolTip.Tip="苔绿" />
+                                                <Button Background="#E07A5F" Width="26" Height="26" CornerRadius="13" Padding="0" Command="{Binding SelectAccentColorCommand}" CommandParameter="#E07A5F" ToolTip.Tip="琥珀" />
+                                                <Button Background="#D946EF" Width="26" Height="26" CornerRadius="13" Padding="0" Command="{Binding SelectAccentColorCommand}" CommandParameter="#D946EF" ToolTip.Tip="玫瑰" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Border Classes="divider-h" />
+
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="面板不透明度" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="调节玻璃窗口质感与背景透光程度" Classes="caption" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <Slider Width="120" Minimum="0.45" Maximum="1.00" SmallChange="0.01" Value="{Binding PanelOpacity, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding PanelOpacityPercentText}" Classes="caption" VerticalAlignment="Center" Width="36" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Border Classes="divider-h" />
+
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="{loc:Loc Settings_PanelRadius}" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="{loc:Loc Settings_PanelRadius_Large}" Classes="caption" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <Button Classes="ghost" Padding="6,2" FontSize="11" Content="8px" Command="{Binding SetPanelRadiusCommand}" CommandParameter="8" />
+                                                <Button Classes="ghost" Padding="6,2" FontSize="11" Content="16px" Command="{Binding SetPanelRadiusCommand}" CommandParameter="16" />
+                                                <Button Classes="ghost" Padding="6,2" FontSize="11" Content="24px" Command="{Binding SetPanelRadiusCommand}" CommandParameter="24" />
+                                                <Slider Width="90" Minimum="0" Maximum="28" Value="{Binding PanelRadius, Mode=TwoWay}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding PanelRadius, StringFormat='{}{0:F0}px'}" Classes="caption" VerticalAlignment="Center" Width="36" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Border Classes="divider-h" />
+
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="{loc:Loc Settings_StartAtLogin}" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="{loc:Loc Settings_StartAtLogin_Description}" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" IsChecked="{Binding StartAtLogin, Mode=TwoWay}" OnContent="" OffContent="" />
                                         </Grid>
 
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{loc:Loc Settings_ShowTrayIcon}" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="{loc:Loc Settings_ShowTrayIcon_Description}" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
-                                            </StackPanel>
-                                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowTrayIcon, Mode=TwoWay}" OnContent="" OffContent="" />
-                                        </Grid>
+                                        <Border Classes="divider-h" />
 
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{loc:Loc Settings_PanelRadius}" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="{loc:Loc Settings_PanelRadius_Large}" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="{loc:Loc Settings_ShowTrayIcon}" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="{loc:Loc Settings_ShowTrayIcon_Description}" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                                                <Slider Width="120" Minimum="8" Maximum="32" Value="{Binding PanelRadius, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding PanelRadius, StringFormat='{}{0:F0}px'}" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" Width="36" />
-                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding ShowTrayIcon, Mode=TwoWay}" OnContent="" OffContent="" />
                                         </Grid>
                                     </StackPanel>
                                 </Border>
 
                                 <Border Classes="module-card">
-                                    <StackPanel Spacing="8">
-                                        <TextBlock Text="{loc:Loc Settings_Launcher_Hotkey}" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                        <TextBlock Text="{loc:Loc Settings_Launcher_DoubleTap_Description}" FontSize="12" Foreground="#80FFFFFF" />
-                                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
-                                            <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="双击 Ctrl" /></Border>
-                                            <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Ctrl + Space" /></Border>
-                                            <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Alt + Space" /></Border>
-                                        </StackPanel>
+                                    <StackPanel Spacing="14">
+                                        <TextBlock Text="面板窗口交互行为" Classes="section" />
+
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="失焦自动隐匿" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="点击启动器或剪贴板面板外部任何区域时自动隐藏" Classes="caption" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding HideOnDeactivate, Mode=TwoWay}" OnContent="" OffContent="" />
+                                        </Grid>
+
+                                        <Border Classes="divider-h" />
+
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="记住面板拖动位置" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="拖拽移动面板后保持记忆，下次在相同屏幕坐标呼出" Classes="caption" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                                <Button Classes="ghost" FontSize="11" Padding="8,4" Content="重置居中" Command="{Binding ResetWindowPositionCommand}" />
+                                                <ToggleSwitch IsChecked="{Binding RememberWindowPosition, Mode=TwoWay}" OnContent="" OffContent="" />
+                                            </StackPanel>
+                                        </Grid>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
 
                             <!-- Tab 1: 能力网格 (ModulesSettingsViewModel) -->
                             <StackPanel Spacing="12" IsVisible="{Binding IsTabModules}">
-                                <TextBlock Text="能力模块总览" FontSize="16" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
-                                <TextBlock Text="只开你要用的。停用的能力不占热键、不装钩子，设置也从左边收起。" FontSize="12" Foreground="#80FFFFFF" Margin="0,0,0,8" />
+                                <TextBlock Text="能力模块总览" Classes="h1" />
+                                <TextBlock Text="只开你要用的。停用的能力不占热键、不装钩子，设置也从左边收起。" Classes="secondary" Margin="0,0,0,8" />
 
                                 <!-- 连带依赖变动确认提示横幅 -->
                                 <Border Classes="module-card"
-                                        Background="#2A3B82F6"
-                                        BorderBrush="#603B82F6"
+                                        Background="{DynamicResource Pk.AccentSoft}"
+                                        BorderBrush="{DynamicResource Pk.Accent}"
                                         IsVisible="{Binding ModulesSettings.HasPendingConfirm}">
                                     <StackPanel Spacing="10">
                                         <TextBlock Text="{Binding ModulesSettings.ConfirmMessage}"
-                                                   FontSize="13"
-                                                   Foreground="#F0FFFFFF"
+                                                   Classes="body"
                                                    FontWeight="SemiBold"
                                                    TextWrapping="Wrap" />
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <Button Content="确认并应用"
                                                     Command="{Binding ModulesSettings.ConfirmChangeCommand}"
-                                                    Background="#2563EB"
-                                                    Foreground="#FFFFFF"
-                                                    CornerRadius="6"
+                                                    Classes="accent"
                                                     Padding="14,6"
                                                     FontSize="12" />
                                             <Button Content="取消"
                                                     Command="{Binding ModulesSettings.CancelConfirmCommand}"
-                                                    Background="#30FFFFFF"
-                                                    Foreground="#E0FFFFFF"
-                                                    CornerRadius="6"
+                                                    Classes="secondary-btn"
                                                     Padding="14,6"
                                                     FontSize="12" />
                                         </StackPanel>
@@ -282,14 +330,18 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vmm:ModuleItemViewModel">
-                                            <Border Classes="module-card" MinHeight="110">
+                                            <Border Classes="module-card" MinHeight="110" Margin="4,4">
                                                 <Grid RowDefinitions="Auto,*,Auto">
                                                     <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
-                                                        <Border Grid.Column="0" Width="28" Height="28" Background="#153B82F6" CornerRadius="8" Margin="0,0,10,0">
+                                                        <Border Grid.Column="0"
+                                                                Classes="icon-badge"
+                                                                Width="30" Height="30"
+                                                                Background="{DynamicResource Pk.AccentSoft}"
+                                                                Margin="0,0,10,0">
                                                             <Path Data="{Binding IconGeometry}"
                                                                   Width="16" Height="16"
                                                                   Stretch="Uniform"
-                                                                  Stroke="#93C5FD"
+                                                                  Stroke="{DynamicResource Pk.Accent}"
                                                                   StrokeThickness="1.75"
                                                                   StrokeJoin="Round"
                                                                   StrokeLineCap="Round"
@@ -297,7 +349,7 @@
                                                                   HorizontalAlignment="Center"
                                                                   VerticalAlignment="Center" />
                                                         </Border>
-                                                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="#F0FFFFFF" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Name}" Classes="body" FontWeight="SemiBold" VerticalAlignment="Center" />
                                                         <Button Grid.Column="2"
                                                                 Command="{Binding ToggleCommand}"
                                                                 Background="Transparent"
@@ -309,13 +361,13 @@
                                                         </Button>
                                                     </Grid>
 
-                                                    <TextBlock Grid.Row="1" Text="{Binding Description}" FontSize="12" Foreground="#80FFFFFF" TextWrapping="Wrap" Margin="0,8,0,8" LineHeight="17" />
+                                                    <TextBlock Grid.Row="1" Text="{Binding Description}" Classes="caption" TextWrapping="Wrap" Margin="0,8,0,8" LineHeight="17" />
 
                                                     <TextBlock Grid.Row="2"
                                                                IsVisible="{Binding HasProblem}"
                                                                Text="{Binding Problem}"
-                                                               FontSize="11"
-                                                               Foreground="#EF4444"
+                                                               Classes="caption"
+                                                               Foreground="{DynamicResource Pk.Danger}"
                                                                TextWrapping="Wrap" />
                                                 </Grid>
                                             </Border>
@@ -326,22 +378,49 @@
 
                             <!-- Tab 2: 启动器 -->
                             <StackPanel Spacing="16" IsVisible="{Binding IsTabLauncher}">
-                                <TextBlock Text="启动器偏好设置" FontSize="16" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
+                                <TextBlock Text="启动器偏好设置" Classes="h1" />
 
                                 <Border Classes="module-card">
                                     <StackPanel Spacing="12">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="搜索文件时集成 plocate" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="全盘极速检索文件，前缀加 'f ' 专门搜索文件路径" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="主唤醒快捷键" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="随时随地快速呼出应用启动器面板" Classes="caption" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <Border Classes="keycap" Background="{DynamicResource Pk.AccentSoft}" BorderBrush="{DynamicResource Pk.Accent}">
+                                                    <TextBlock Classes="keycap-text" Text="{Binding LauncherHotkey}" FontWeight="SemiBold" Foreground="{DynamicResource Pk.Accent}" />
+                                                </Border>
+                                                <Button Classes="ghost" FontSize="11" Padding="8,4"
+                                                        Command="{Binding StartRecordingCommand}" CommandParameter="Launcher"
+                                                        Content="{Binding LauncherRecordButtonText}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="快捷预设:" Classes="caption" VerticalAlignment="Center" />
+                                            <Button Classes="ghost" Padding="6,2" FontSize="11" Content="Ctrl+Space" Command="{Binding SetLauncherPresetCommand}" CommandParameter="Ctrl+Space" />
+                                            <Button Classes="ghost" Padding="6,2" FontSize="11" Content="Alt+Space" Command="{Binding SetLauncherPresetCommand}" CommandParameter="Alt+Space" />
+                                            <Button Classes="ghost" Padding="6,2" FontSize="11" Content="Super+Space" Command="{Binding SetLauncherPresetCommand}" CommandParameter="Super+Space" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Classes="module-card">
+                                    <StackPanel Spacing="12">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="搜索文件时集成 plocate" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="全盘极速检索文件，前缀加 'f ' 专门搜索文件路径" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableFileSearch, Mode=TwoWay}" OnContent="" OffContent="" />
                                         </Grid>
 
+                                        <Border Classes="divider-h" />
+
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="即时算式计算器" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="输入如 sqrt(16)+2^3 时，自动置顶卡片计算结果" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="即时算式计算器" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="输入如 sqrt(16)+2^3 时，自动置顶卡片计算结果" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableCalculator, Mode=TwoWay}" OnContent="" OffContent="" />
                                         </Grid>
@@ -351,113 +430,134 @@
 
                             <!-- Tab 3: 剪贴板 -->
                             <StackPanel Spacing="16" IsVisible="{Binding IsTabClipboard}">
-                                <TextBlock Text="剪贴板历史偏好设置" FontSize="16" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
+                                <TextBlock Text="剪贴板历史偏好设置" Classes="h1" />
 
                                 <Border Classes="module-card">
                                     <StackPanel Spacing="12">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="最大保留记录数" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="历史记录存储在本地 SQLite 数据库中" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="快速唤出热键" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="随时随地呼出紧凑历史记录面板" Classes="caption" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <Border Classes="keycap" Background="{DynamicResource Pk.AccentSoft}" BorderBrush="{DynamicResource Pk.Accent}">
+                                                    <TextBlock Classes="keycap-text" Text="{Binding ClipboardHotkey}" FontWeight="SemiBold" Foreground="{DynamicResource Pk.Accent}" />
+                                                </Border>
+                                                <Button Classes="ghost" FontSize="11" Padding="8,4"
+                                                        Command="{Binding StartRecordingCommand}" CommandParameter="Clipboard"
+                                                        Content="{Binding ClipboardRecordButtonText}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="快捷预设:" Classes="caption" VerticalAlignment="Center" />
+                                            <Button Classes="ghost" Padding="6,2" FontSize="11" Content="Alt+V" Command="{Binding SetClipboardPresetCommand}" CommandParameter="Alt+V" />
+                                            <Button Classes="ghost" Padding="6,2" FontSize="11" Content="Ctrl+Alt+V" Command="{Binding SetClipboardPresetCommand}" CommandParameter="Ctrl+Alt+V" />
+                                            <Button Classes="ghost" Padding="6,2" FontSize="11" Content="Alt+C" Command="{Binding SetClipboardPresetCommand}" CommandParameter="Alt+C" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Classes="module-card">
+                                    <StackPanel Spacing="12">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="最大保留记录数" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="历史记录存储在本地 SQLite 数据库中" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                                 <Slider Width="120" Minimum="50" Maximum="2000" Value="{Binding ClipboardMaxItems, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding ClipboardMaxItems, StringFormat='{}{0:F0}条'}" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" Width="45" />
-                                            </StackPanel>
-                                        </Grid>
-
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="快速唤出热键" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="随时随地呼出紧凑历史记录面板" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Alt + V" /></Border>
-                                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Ctrl + Shift + V" /></Border>
+                                                <TextBlock Text="{Binding ClipboardMaxItems, StringFormat='{}{0:F0}条'}" Classes="caption" VerticalAlignment="Center" Width="45" />
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
 
-                            <!-- Tab 4: 鼠标手势 -->
-                            <StackPanel Spacing="16" IsVisible="{Binding IsTabGestures}">
-                                <TextBlock Text="全局鼠标手势与轨迹动作" FontSize="16" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
-
-                                <Border Classes="module-card">
-                                    <StackPanel Spacing="12">
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="手势触发按键" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="按住指定鼠标按键并划动方向触发对应动作 (支持右键 Right / 中键 Middle / 侧键 Side)" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
-                                            </StackPanel>
-                                            <ComboBox Grid.Column="1" ItemsSource="{Binding GestureButtons}" SelectedItem="{Binding SelectedGestureButton, Mode=TwoWay}" FontSize="12" />
-                                        </Grid>
-
-                                        <TextBlock Text="已配置的手势轨迹动作映射表:" FontSize="12" Foreground="#80FFFFFF" Margin="0,6,0,0" />
-
-                                        <ItemsControl ItemsSource="{Binding GestureMappings}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="vm:GestureMappingItem">
-                                                    <Grid ColumnDefinitions="140,*" Margin="0,4">
-                                                        <TextBlock Grid.Column="0" Text="{Binding GestureName}" FontSize="12" Foreground="#E0FFFFFF" VerticalAlignment="Center" />
-                                                        <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableActions}" SelectedItem="{Binding SelectedAction, Mode=TwoWay}" FontSize="12" Height="28" />
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-                                </Border>
+                            <!-- Tab 4: 鼠标手势 (已移除，保持隐藏) -->
+                            <StackPanel Spacing="16" IsVisible="False">
                             </StackPanel>
 
                             <!-- Tab 5: 超级面板 -->
                             <StackPanel Spacing="16" IsVisible="{Binding IsTabSuperPanel}">
-                                <TextBlock Text="{loc:Loc Settings_NavSuperPanel}" FontSize="16" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
+                                <TextBlock Text="{loc:Loc Settings_NavSuperPanel}" Classes="h1" />
 
                                 <Border Classes="module-card">
                                     <StackPanel Spacing="12">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{loc:Loc Settings_Super_AutoTranslate}" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="{loc:Loc Settings_Super_AutoTranslate_Description}" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="全局唤醒热键" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="就近鼠标指针处呼出划词操作与 AI 翻译面板" Classes="caption" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <Border Classes="keycap" Background="{DynamicResource Pk.AccentSoft}" BorderBrush="{DynamicResource Pk.Accent}">
+                                                    <TextBlock Classes="keycap-text" Text="{Binding SuperPanelHotkey}" FontWeight="SemiBold" Foreground="{DynamicResource Pk.Accent}" />
+                                                </Border>
+                                                <Button Classes="ghost" FontSize="11" Padding="8,4"
+                                                        Command="{Binding StartRecordingCommand}" CommandParameter="SuperPanel"
+                                                        Content="{Binding SuperPanelRecordButtonText}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="快捷预设:" Classes="caption" VerticalAlignment="Center" />
+                                            <Button Classes="ghost" Padding="6,2" FontSize="11" Content="Alt+S" Command="{Binding SetSuperPanelPresetCommand}" CommandParameter="Alt+S" />
+                                            <Button Classes="ghost" Padding="6,2" FontSize="11" Content="Ctrl+Shift+S" Command="{Binding SetSuperPanelPresetCommand}" CommandParameter="Ctrl+Shift+S" />
+                                            <Button Classes="ghost" Padding="6,2" FontSize="11" Content="Alt+D" Command="{Binding SetSuperPanelPresetCommand}" CommandParameter="Alt+D" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Classes="module-card">
+                                    <StackPanel Spacing="12">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="{loc:Loc Settings_Super_AutoTranslate}" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="{loc:Loc Settings_Super_AutoTranslate_Description}" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoTranslateSelection, Mode=TwoWay}" OnContent="" OffContent="" />
                                         </Grid>
 
+                                        <Border Classes="divider-h" />
+
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{loc:Loc Settings_Super_PauseFullscreen}" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="全屏窗口活跃时忽略划词与按键响应" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="{loc:Loc Settings_Super_PauseFullscreen}" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="全屏窗口活跃时忽略划词与按键响应" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
                                             <ToggleSwitch Grid.Column="1" IsChecked="{Binding PauseInFullscreen, Mode=TwoWay}" OnContent="" OffContent="" />
                                         </Grid>
 
+                                        <Border Classes="divider-h" />
+
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{loc:Loc Settings_Super_MinLength}" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="触发超级面板的最小划词字符数" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="{loc:Loc Settings_Super_MinLength}" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="触发超级面板的最小划词字符数" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                                 <Slider Width="100" Minimum="1" Maximum="20" Value="{Binding SelectionMinLength, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding SelectionMinLength}" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" Width="28" />
+                                                <TextBlock Text="{Binding SelectionMinLength}" Classes="caption" VerticalAlignment="Center" Width="28" />
                                             </StackPanel>
                                         </Grid>
 
+                                        <Border Classes="divider-h" />
+
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="{loc:Loc Settings_Super_MaxLength}" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="允许自动选词响应的最大字符数" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="{loc:Loc Settings_Super_MaxLength}" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="允许自动选词响应的最大字符数" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                                 <Slider Width="100" Minimum="200" Maximum="10000" Value="{Binding SelectionMaxLength, Mode=TwoWay}" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding SelectionMaxLength}" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" Width="40" />
+                                                <TextBlock Text="{Binding SelectionMaxLength}" Classes="caption" VerticalAlignment="Center" Width="40" />
                                             </StackPanel>
                                         </Grid>
 
+                                        <Border Classes="divider-h" />
+
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="手动呼出热键" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="选中文字后立即唤醒" FontSize="12" Foreground="#80FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="手动呼出热键" Classes="body" FontWeight="Medium" />
+                                                <TextBlock Text="选中文字后立即唤醒" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
                                             <Border Grid.Column="1" Classes="keycap"><TextBlock Classes="keycap-text" Text="Alt + S" /></Border>
                                         </Grid>
@@ -466,21 +566,16 @@
 
                                 <Border Classes="module-card">
                                     <StackPanel Spacing="10">
-                                        <TextBlock Text="{loc:Loc Settings_Super_Blacklist}" FontSize="13" FontWeight="Medium" Foreground="#E5FFFFFF" />
+                                        <TextBlock Text="{loc:Loc Settings_Super_Blacklist}" Classes="body" FontWeight="Medium" />
                                         <Grid ColumnDefinitions="*,Auto">
                                             <TextBox Grid.Column="0"
+                                                     Classes="pk-input"
                                                      Text="{Binding BlacklistedAppsInput, Mode=TwoWay}"
                                                      Watermark="{loc:Loc Settings_Super_Blacklist_Placeholder}"
-                                                     FontSize="12"
-                                                     Background="#10FFFFFF"
-                                                     BorderThickness="0"
-                                                     CornerRadius="6" />
+                                                     FontSize="12" />
                                             <Button Grid.Column="1"
                                                     Command="{Binding AddBlacklistedAppCommand}"
-                                                    Background="#253B82F6"
-                                                    Foreground="#FFFFFF"
-                                                    BorderThickness="0"
-                                                    CornerRadius="6"
+                                                    Classes="accent"
                                                     Padding="12,6"
                                                     FontSize="12"
                                                     Margin="8,0,0,0">
@@ -492,15 +587,15 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="x:String">
                                                     <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                                                        <TextBlock Grid.Column="0" Text="{Binding}" FontSize="12" Foreground="#D0FFFFFF" VerticalAlignment="Center" />
+                                                        <TextBlock Grid.Column="0" Text="{Binding}" Classes="body" VerticalAlignment="Center" />
                                                         <Button Grid.Column="1"
-                                                                Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).RemoveBlacklistedAppCommand}"
+                                                                Command="{Binding $parent[Window].DataContext.RemoveBlacklistedAppCommand}"
                                                                 CommandParameter="{Binding}"
-                                                                Background="#18EF4444"
-                                                                Foreground="#F87171"
+                                                                Background="{DynamicResource Pk.DangerSoft}"
+                                                                Foreground="{DynamicResource Pk.Danger}"
                                                                 BorderThickness="0"
-                                                                CornerRadius="4"
-                                                                Padding="8,2"
+                                                                CornerRadius="{StaticResource Pk.Radius.Control}"
+                                                                Padding="8,3"
                                                                 FontSize="11">
                                                             <TextBlock Text="{loc:Loc Common_Remove}" />
                                                         </Button>
@@ -514,25 +609,20 @@
 
                             <!-- Tab 6: 文件夹跳转 (FolderJump) -->
                             <StackPanel Spacing="16" IsVisible="{Binding IsTabFolderJump}">
-                                <TextBlock Text="文件夹快速跳转收藏" FontSize="16" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
-                                <TextBlock Text="收藏常用目录，在启动器和文件对话框中一键直达" FontSize="12" Foreground="#80FFFFFF" Margin="0,0,0,4" />
+                                <TextBlock Text="文件夹快速跳转收藏" Classes="h1" />
+                                <TextBlock Text="收藏常用目录，在启动器和文件对话框中一键直达" Classes="secondary" Margin="0,0,0,4" />
 
                                 <Border Classes="module-card">
                                     <StackPanel Spacing="12">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <TextBox Grid.Column="0"
+                                                     Classes="pk-input"
                                                      Text="{Binding NewFavoriteFolderPath, Mode=TwoWay}"
                                                      Watermark="输入或粘贴目录绝对路径 (如 /home/user/Work)..."
-                                                     FontSize="12"
-                                                     Background="#10FFFFFF"
-                                                     BorderThickness="0"
-                                                     CornerRadius="6" />
+                                                     FontSize="12" />
                                             <Button Grid.Column="1"
                                                     Command="{Binding AddFavoriteFolderCommand}"
-                                                    Background="#253B82F6"
-                                                    Foreground="#FFFFFF"
-                                                    BorderThickness="0"
-                                                    CornerRadius="6"
+                                                    Classes="accent"
                                                     Padding="14,6"
                                                     FontSize="12"
                                                     Margin="8,0,0,0">
@@ -544,26 +634,23 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="x:String">
                                                     <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,3">
-                                                        <TextBlock Grid.Column="0" Text="{Binding}" FontSize="12" Foreground="#E0FFFFFF" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Grid.Column="0" Text="{Binding}" Classes="body" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                                         <Button Grid.Column="1"
-                                                                Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).OpenFavoriteFolderCommand}"
+                                                                Command="{Binding $parent[Window].DataContext.OpenFavoriteFolderCommand}"
                                                                 CommandParameter="{Binding}"
-                                                                Background="#15FFFFFF"
-                                                                Foreground="#93C5FD"
-                                                                BorderThickness="0"
-                                                                CornerRadius="6"
+                                                                Classes="secondary-btn"
                                                                 Padding="10,4"
                                                                 FontSize="11"
                                                                 Margin="6,0">
                                                             <TextBlock Text="打开" />
                                                         </Button>
                                                         <Button Grid.Column="2"
-                                                                Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).RemoveFavoriteFolderCommand}"
+                                                                Command="{Binding $parent[Window].DataContext.RemoveFavoriteFolderCommand}"
                                                                 CommandParameter="{Binding}"
-                                                                Background="#15EF4444"
-                                                                Foreground="#F87171"
+                                                                Background="{DynamicResource Pk.DangerSoft}"
+                                                                Foreground="{DynamicResource Pk.Danger}"
                                                                 BorderThickness="0"
-                                                                CornerRadius="6"
+                                                                CornerRadius="{StaticResource Pk.Radius.Control}"
                                                                 Padding="10,4"
                                                                 FontSize="11">
                                                             <TextBlock Text="移除" />
@@ -578,53 +665,73 @@
 
                             <!-- Tab 7: 批量重命名 (BatchRename) -->
                             <StackPanel Spacing="16" IsVisible="{Binding IsTabBatchRename}">
-                                <TextBlock Text="文件批量重命名" FontSize="16" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
-                                <TextBlock Text="一次给多个文件改名：查找替换、添加前后缀、自动编号，先预览后执行" FontSize="12" Foreground="#80FFFFFF" Margin="0,0,0,4" />
+                                <TextBlock Text="文件批量重命名" Classes="h1" />
+                                <TextBlock Text="一次给多个文件改名：查找替换、添加前后缀、自动编号，先预览后执行" Classes="secondary" Margin="0,0,0,4" />
 
                                 <Border Classes="module-card">
                                     <StackPanel Spacing="12">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <TextBox Grid.Column="0" Text="{Binding RenameFolderPath, Mode=TwoWay}" Watermark="输入待处理文件夹绝对路径 (如 /home/user/Downloads)..." FontSize="12" Background="#10FFFFFF" BorderThickness="0" CornerRadius="6" />
-                                            <Button Grid.Column="1" Command="{Binding LoadRenameFilesCommand}" Background="#15FFFFFF" Foreground="#FFFFFF" BorderThickness="0" CornerRadius="6" Padding="14,6" FontSize="12" Margin="8,0,0,0">
+                                            <TextBox Grid.Column="0"
+                                                     Classes="pk-input"
+                                                     Text="{Binding RenameFolderPath, Mode=TwoWay}"
+                                                     Watermark="输入待处理文件夹绝对路径 (如 /home/user/Downloads)..."
+                                                     FontSize="12" />
+                                            <Button Grid.Column="1"
+                                                    Command="{Binding LoadRenameFilesCommand}"
+                                                    Classes="secondary-btn"
+                                                    Padding="14,6"
+                                                    FontSize="12"
+                                                    Margin="8,0,0,0">
                                                 <TextBlock Text="扫描加载" />
                                             </Button>
                                         </Grid>
 
                                         <Grid ColumnDefinitions="*,*" Margin="0,4,0,0">
                                             <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                                                <TextBlock Text="查找替换文字:" FontSize="11" Foreground="#70FFFFFF" Margin="0,0,0,2" />
+                                                <TextBlock Text="查找替换文字:" Classes="caption" Margin="0,0,0,4" />
                                                 <Grid ColumnDefinitions="*,*">
-                                                    <TextBox Grid.Column="0" Text="{Binding RenameFindText, Mode=TwoWay}" Watermark="查找字符..." FontSize="11" Background="#10FFFFFF" BorderThickness="0" CornerRadius="6" Margin="0,0,3,0" />
-                                                    <TextBox Grid.Column="1" Text="{Binding RenameReplaceText, Mode=TwoWay}" Watermark="替换为..." FontSize="11" Background="#10FFFFFF" BorderThickness="0" CornerRadius="6" Margin="3,0,0,0" />
+                                                    <TextBox Grid.Column="0" Classes="pk-input" Text="{Binding RenameFindText, Mode=TwoWay}" Watermark="查找字符..." FontSize="11" Margin="0,0,3,0" />
+                                                    <TextBox Grid.Column="1" Classes="pk-input" Text="{Binding RenameReplaceText, Mode=TwoWay}" Watermark="替换为..." FontSize="11" Margin="3,0,0,0" />
                                                 </Grid>
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" Margin="6,0,0,0">
-                                                <TextBlock Text="添加前缀 / 后缀:" FontSize="11" Foreground="#70FFFFFF" Margin="0,0,0,2" />
+                                                <TextBlock Text="添加前缀 / 后缀:" Classes="caption" Margin="0,0,0,4" />
                                                 <Grid ColumnDefinitions="*,*">
-                                                    <TextBox Grid.Column="0" Text="{Binding RenamePrefix, Mode=TwoWay}" Watermark="前缀..." FontSize="11" Background="#10FFFFFF" BorderThickness="0" CornerRadius="6" Margin="0,0,3,0" />
-                                                    <TextBox Grid.Column="1" Text="{Binding RenameSuffix, Mode=TwoWay}" Watermark="后缀..." FontSize="11" Background="#10FFFFFF" BorderThickness="0" CornerRadius="6" Margin="3,0,0,0" />
+                                                    <TextBox Grid.Column="0" Classes="pk-input" Text="{Binding RenamePrefix, Mode=TwoWay}" Watermark="前缀..." FontSize="11" Margin="0,0,3,0" />
+                                                    <TextBox Grid.Column="1" Classes="pk-input" Text="{Binding RenameSuffix, Mode=TwoWay}" Watermark="后缀..." FontSize="11" Margin="3,0,0,0" />
                                                 </Grid>
                                             </StackPanel>
                                         </Grid>
 
-                                        <ScrollViewer Height="120" Background="#0A000000" CornerRadius="6">
-                                            <ItemsControl ItemsSource="{Binding RenamePreviews}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="vm:RenameFilePreviewItem">
-                                                        <Grid ColumnDefinitions="*,Auto,*" Margin="8,3">
-                                                            <TextBlock Grid.Column="0" Text="{Binding OriginalName}" FontSize="11" Foreground="#80FFFFFF" TextTrimming="CharacterEllipsis" />
-                                                            <TextBlock Grid.Column="1" Text=" → " FontSize="11" Foreground="#3B82F6" Margin="6,0" />
-                                                            <TextBlock Grid.Column="2" Text="{Binding NewName}" FontSize="11" Foreground="#34D399" TextTrimming="CharacterEllipsis" />
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </ScrollViewer>
+                                        <Border Background="{DynamicResource Pk.SurfaceInput}"
+                                                BorderBrush="{DynamicResource Pk.Stroke}"
+                                                BorderThickness="1"
+                                                CornerRadius="{StaticResource Pk.Radius.Control}"
+                                                Height="120"
+                                                Padding="6">
+                                            <ScrollViewer>
+                                                <ItemsControl ItemsSource="{Binding RenamePreviews}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:RenameFilePreviewItem">
+                                                            <Grid ColumnDefinitions="*,Auto,*" Margin="6,3">
+                                                                <TextBlock Grid.Column="0" Text="{Binding OriginalName}" Classes="caption" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Grid.Column="1" Text=" → " Classes="caption" Foreground="{DynamicResource Pk.Accent}" Margin="6,0" />
+                                                                <TextBlock Grid.Column="2" Text="{Binding NewName}" Classes="caption" Foreground="{DynamicResource Pk.Success}" TextTrimming="CharacterEllipsis" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+                                        </Border>
 
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <TextBlock Grid.Column="0" Text="{Binding RenameStatusMessage}" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" />
-                                            <Button Grid.Column="1" Command="{Binding ExecuteRenameCommand}" Background="#253B82F6" Foreground="#FFFFFF" BorderThickness="0" CornerRadius="6" Padding="16,6" FontSize="12">
+                                            <TextBlock Grid.Column="0" Text="{Binding RenameStatusMessage}" Classes="caption" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1"
+                                                    Command="{Binding ExecuteRenameCommand}"
+                                                    Classes="accent"
+                                                    Padding="16,6"
+                                                    FontSize="12">
                                                 <TextBlock Text="执行批量重命名" />
                                             </Button>
                                         </Grid>
@@ -632,24 +739,27 @@
                                 </Border>
                             </StackPanel>
 
-                            <!-- Tab 8: 定时关机 (PowerTimer - 100% 对齐原版设计) -->
+                            <!-- Tab 8: 定时关机 (PowerTimer) -->
                             <StackPanel Spacing="16" IsVisible="{Binding IsTabPowerTimer}">
-                                <TextBlock Text="定时关机 / 电源任务" FontSize="16" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
-                                <TextBlock Text="到点关机、重启、睡眠或锁屏；到点前 1 分钟提醒，可以随时取消或推迟。" FontSize="12" Foreground="#80FFFFFF" Margin="0,0,0,4" />
+                                <TextBlock Text="定时关机 / 电源任务" Classes="h1" />
+                                <TextBlock Text="到点关机、重启、睡眠或锁屏；到点前 1 分钟提醒，可以随时取消或推迟。" Classes="secondary" Margin="0,0,0,4" />
 
                                 <!-- 状态卡：有定时任务时展示 -->
-                                <Border Classes="module-card" IsVisible="{Binding IsPowerTimerArmed}" Background="#1E2563EB" BorderBrush="#3B82F6">
+                                <Border Classes="module-card"
+                                        IsVisible="{Binding IsPowerTimerArmed}"
+                                        Background="{DynamicResource Pk.AccentSoft}"
+                                        BorderBrush="{DynamicResource Pk.Accent}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="{Binding PowerTimerRemainingText}" FontSize="28" FontWeight="SemiBold" Foreground="#93C5FD" />
-                                            <TextBlock Text="{Binding PowerTimerTargetAtText}" FontSize="12" Foreground="#80FFFFFF" Margin="0,4,0,0" />
+                                            <TextBlock Text="{Binding PowerTimerRemainingText}" FontSize="28" FontWeight="SemiBold" Foreground="{DynamicResource Pk.AccentText}" />
+                                            <TextBlock Text="{Binding PowerTimerTargetAtText}" Classes="caption" Margin="0,4,0,0" />
                                         </StackPanel>
                                         <Button Grid.Column="1"
                                                 Command="{Binding CancelPowerTimerCommand}"
-                                                Background="#25EF4444"
-                                                Foreground="#F87171"
+                                                Background="{DynamicResource Pk.DangerSoft}"
+                                                Foreground="{DynamicResource Pk.Danger}"
                                                 BorderThickness="0"
-                                                CornerRadius="8"
+                                                CornerRadius="{StaticResource Pk.Radius.Control}"
                                                 Padding="14,8"
                                                 FontSize="12"
                                                 VerticalAlignment="Center">
@@ -662,12 +772,14 @@
                                 <Border Classes="module-card">
                                     <StackPanel Spacing="14">
                                         <Grid ColumnDefinitions="100,*">
-                                            <TextBlock Grid.Column="0" Text="执行动作:" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="0" Text="执行动作:" Classes="body" VerticalAlignment="Center" />
                                             <ComboBox Grid.Column="1" ItemsSource="{Binding PowerActions}" SelectedItem="{Binding SelectedPowerAction, Mode=TwoWay}" FontSize="12" Width="180" />
                                         </Grid>
 
+                                        <Border Classes="divider-h" />
+
                                         <Grid ColumnDefinitions="100,*">
-                                            <TextBlock Grid.Column="0" Text="快捷延时:" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="0" Text="快捷延时:" Classes="body" VerticalAlignment="Center" />
                                             <StackPanel Grid.Column="1" Orientation="Horizontal">
                                                 <Button Classes="quick-pick-btn" Content="15 分钟" Command="{Binding SetQuickDelayCommand}" CommandParameter="15" />
                                                 <Button Classes="quick-pick-btn" Content="30 分钟" Command="{Binding SetQuickDelayCommand}" CommandParameter="30" />
@@ -676,23 +788,23 @@
                                             </StackPanel>
                                         </Grid>
 
+                                        <Border Classes="divider-h" />
+
                                         <Grid ColumnDefinitions="100,*,Auto">
-                                            <TextBlock Grid.Column="0" Text="自定义时长:" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="0" Text="自定义时长:" Classes="body" VerticalAlignment="Center" />
                                             <Slider Grid.Column="1" Minimum="1" Maximum="180" Value="{Binding PowerTimerMinutes, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                            <TextBlock Grid.Column="2" Text="{Binding PowerTimerMinutes, StringFormat='{}{0} 分钟'}" FontSize="12" Foreground="#F59E0B" FontWeight="Bold" VerticalAlignment="Center" Width="65" />
+                                            <TextBlock Grid.Column="2" Text="{Binding PowerTimerMinutes, StringFormat='{}{0} 分钟'}" FontSize="12" Foreground="{DynamicResource Pk.Warning}" FontWeight="Bold" VerticalAlignment="Center" Width="65" />
                                         </Grid>
+
+                                        <Border Classes="divider-h" />
 
                                         <Grid ColumnDefinitions="100,*">
                                             <Border Grid.Column="0" />
                                             <Button Grid.Column="1"
                                                     Command="{Binding ArmPowerTimerCommand}"
-                                                    Background="#253B82F6"
-                                                    Foreground="#FFFFFF"
-                                                    BorderThickness="0"
-                                                    CornerRadius="8"
+                                                    Classes="accent"
                                                     Padding="20,8"
                                                     FontSize="13"
-                                                    FontWeight="Medium"
                                                     HorizontalAlignment="Left">
                                                 <TextBlock Text="定好 (开始倒计时)" />
                                             </Button>
@@ -703,12 +815,12 @@
 
                             <!-- Tab 9: AI 服务 -->
                             <StackPanel Spacing="16" IsVisible="{Binding IsTabAi}">
-                                <TextBlock Text="{loc:Loc Settings_NavAi}" FontSize="16" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
+                                <TextBlock Text="{loc:Loc Settings_NavAi}" Classes="h1" />
 
                                 <Border Classes="module-card">
                                     <StackPanel Spacing="12">
                                         <Grid ColumnDefinitions="120,*">
-                                            <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_Provider}" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_Provider}" Classes="body" VerticalAlignment="Center" />
                                             <ComboBox Grid.Column="1" ItemsSource="{Binding AiPresetsList}" SelectedItem="{Binding SelectedPreset, Mode=TwoWay}" FontSize="12">
                                                 <ComboBox.ItemTemplate>
                                                     <DataTemplate x:DataType="ai:AiPreset">
@@ -718,34 +830,41 @@
                                             </ComboBox>
                                         </Grid>
 
-                                        <Grid ColumnDefinitions="120,*">
-                                            <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_BaseUrl}" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" />
-                                            <TextBox Grid.Column="1" Text="{Binding AiBaseUrl, Mode=TwoWay}" FontSize="12" Background="#10FFFFFF" BorderThickness="0" CornerRadius="6" />
-                                        </Grid>
+                                        <Border Classes="divider-h" />
 
                                         <Grid ColumnDefinitions="120,*">
-                                            <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_ApiKey}" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" />
-                                            <TextBox Grid.Column="1" Text="{Binding AiApiKey, Mode=TwoWay}" PasswordChar="•" FontSize="12" Background="#10FFFFFF" BorderThickness="0" CornerRadius="6" Watermark="粘贴 API Key..." />
+                                            <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_BaseUrl}" Classes="body" VerticalAlignment="Center" />
+                                            <TextBox Grid.Column="1" Classes="pk-input" Text="{Binding AiBaseUrl, Mode=TwoWay}" FontSize="12" />
                                         </Grid>
 
-                                        <Grid ColumnDefinitions="120,*">
-                                            <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_Model}" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" />
-                                            <TextBox Grid.Column="1" Text="{Binding AiModel, Mode=TwoWay}" FontSize="12" Background="#10FFFFFF" BorderThickness="0" CornerRadius="6" />
-                                        </Grid>
+                                        <Border Classes="divider-h" />
 
                                         <Grid ColumnDefinitions="120,*">
-                                            <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_Format}" FontSize="12" Foreground="#80FFFFFF" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_ApiKey}" Classes="body" VerticalAlignment="Center" />
+                                            <TextBox Grid.Column="1" Classes="pk-input" Text="{Binding AiApiKey, Mode=TwoWay}" PasswordChar="•" FontSize="12" Watermark="粘贴 API Key..." />
+                                        </Grid>
+
+                                        <Border Classes="divider-h" />
+
+                                        <Grid ColumnDefinitions="120,*">
+                                            <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_Model}" Classes="body" VerticalAlignment="Center" />
+                                            <TextBox Grid.Column="1" Classes="pk-input" Text="{Binding AiModel, Mode=TwoWay}" FontSize="12" />
+                                        </Grid>
+
+                                        <Border Classes="divider-h" />
+
+                                        <Grid ColumnDefinitions="120,*">
+                                            <TextBlock Grid.Column="0" Text="{loc:Loc Settings_Ai_Format}" Classes="body" VerticalAlignment="Center" />
                                             <ComboBox Grid.Column="1" ItemsSource="{Binding AiApiFormats}" SelectedItem="{Binding AiApiFormat, Mode=TwoWay}" FontSize="12" />
                                         </Grid>
+
+                                        <Border Classes="divider-h" />
 
                                         <Grid ColumnDefinitions="120,*" Margin="0,4,0,0">
                                             <Border Grid.Column="0" />
                                             <Button Grid.Column="1"
                                                     Command="{Binding SaveAiConfigCommand}"
-                                                    Background="#253B82F6"
-                                                    Foreground="#93C5FD"
-                                                    BorderThickness="0"
-                                                    CornerRadius="6"
+                                                    Classes="accent"
                                                     Padding="16,6"
                                                     FontSize="12"
                                                     HorizontalAlignment="Left">
@@ -758,21 +877,31 @@
 
                             <!-- Tab 10: 关于与在线更新 -->
                             <StackPanel Spacing="16" IsVisible="{Binding IsTabAbout}">
-                                <TextBlock Text="关于 Pankin" FontSize="16" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
+                                <TextBlock Text="关于 Pankin" Classes="h1" />
 
                                 <Border Classes="module-card">
                                     <StackPanel Spacing="10">
                                         <StackPanel Orientation="Horizontal" Spacing="12">
-                                            <Border Width="40" Height="40" Background="#2563EB" CornerRadius="10">
-                                                <TextBlock Text="P" FontSize="22" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <Border Width="40" Height="40" CornerRadius="10">
+                                                <Border.Background>
+                                                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                                                        <GradientStop Offset="0" Color="#9B8CFF" />
+                                                        <GradientStop Offset="1" Color="#5B6CFF" />
+                                                    </LinearGradientBrush>
+                                                </Border.Background>
+                                                <TextBlock Text="P" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Border>
                                             <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="Pankin for Ubuntu 24.04 (Linux 原生效率工具)" FontSize="14" FontWeight="SemiBold" Foreground="#F0FFFFFF" />
-                                                <TextBlock Text="基于 Avalonia UI + SharpHook + SQLite 重构" FontSize="11" Foreground="#70FFFFFF" Margin="0,2,0,0" />
+                                                <TextBlock Text="Pankin for Ubuntu 24.04 (Linux 原生效率工具)" Classes="body" FontWeight="SemiBold" />
+                                                <TextBlock Text="基于 Avalonia UI + SharpHook + SQLite 重构" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
                                         </StackPanel>
 
-                                        <TextBlock Text="Pankin 将 Windows WPF 生产力利器原生移植到 Linux 环境，整合应用启动、剪贴板历史、全局鼠标手势、划词悬浮超级面板与流式大模型 AI。" FontSize="12" Foreground="#A0FFFFFF" TextWrapping="Wrap" LineHeight="18" Margin="0,6,0,0" />
+                                        <TextBlock Text="Pankin 将 Windows WPF 生产力利器原生移植到 Linux 环境，整合应用启动、剪贴板历史、全局鼠标手势、划词悬浮超级面板与流式大模型 AI。"
+                                                   Classes="secondary"
+                                                   TextWrapping="Wrap"
+                                                   LineHeight="19"
+                                                   Margin="0,6,0,0" />
                                     </StackPanel>
                                 </Border>
 
@@ -781,24 +910,20 @@
                                     <StackPanel Spacing="12">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Grid.Column="0" Spacing="4">
-                                                <TextBlock Text="软件版本检查" FontSize="13" FontWeight="SemiBold" Foreground="#E5FFFFFF" />
-                                                <TextBlock Text="{Binding UpdateSettings.StatusText}" FontSize="12" Foreground="#80FFFFFF" />
+                                                <TextBlock Text="软件版本检查" Classes="body" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding UpdateSettings.StatusText}" Classes="caption" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                                 <Button Content="检查更新"
                                                         Command="{Binding UpdateSettings.CheckUpdateCommand}"
                                                         IsEnabled="{Binding !UpdateSettings.IsChecking}"
-                                                        Background="#2563EB"
-                                                        Foreground="#FFFFFF"
-                                                        CornerRadius="6"
+                                                        Classes="accent"
                                                         Padding="14,6"
                                                         FontSize="12" />
                                                 <Button Content="打开发布页面"
                                                         Command="{Binding UpdateSettings.OpenReleasePageCommand}"
                                                         IsVisible="{Binding UpdateSettings.IsAvailable}"
-                                                        Background="#10B981"
-                                                        Foreground="#FFFFFF"
-                                                        CornerRadius="6"
+                                                        Classes="secondary-btn"
                                                         Padding="14,6"
                                                         FontSize="12" />
                                             </StackPanel>
@@ -808,28 +933,28 @@
                                         <ProgressBar IsVisible="{Binding UpdateSettings.IsDownloading}"
                                                      Value="{Binding UpdateSettings.DownloadProgress}"
                                                      Minimum="0" Maximum="1"
-                                                     Height="4"
-                                                     Background="#33FFFFFF"
-                                                     Foreground="#3B82F6" />
+                                                     Height="3"
+                                                     Background="{DynamicResource Pk.SurfaceInput}"
+                                                     Foreground="{DynamicResource Pk.Accent}" />
 
                                         <!-- 错误提示 -->
                                         <TextBlock IsVisible="{Binding UpdateSettings.HasFailed}"
                                                    Text="{Binding UpdateSettings.Error}"
-                                                   FontSize="12"
-                                                   Foreground="#EF4444"
+                                                   Classes="caption"
+                                                   Foreground="{DynamicResource Pk.Danger}"
                                                    TextWrapping="Wrap" />
 
                                         <!-- 新版更新日志 -->
                                         <Border IsVisible="{Binding UpdateSettings.HasReleaseNotes}"
-                                                Background="#10FFFFFF"
-                                                BorderBrush="#20FFFFFF"
+                                                Background="{DynamicResource Pk.SurfaceInput}"
+                                                BorderBrush="{DynamicResource Pk.Stroke}"
                                                 BorderThickness="1"
-                                                CornerRadius="8"
+                                                CornerRadius="{StaticResource Pk.Radius.Control}"
                                                 Padding="12"
                                                 Margin="0,4,0,0">
                                             <StackPanel Spacing="6">
-                                                <TextBlock Text="更新说明 (Release Notes):" FontSize="12" FontWeight="SemiBold" Foreground="#93C5FD" />
-                                                <TextBlock Text="{Binding UpdateSettings.ReleaseNotes}" FontSize="11" Foreground="#A0FFFFFF" TextWrapping="Wrap" MaxHeight="160" />
+                                                <TextBlock Text="更新说明 (Release Notes):" Classes="body" FontWeight="SemiBold" Foreground="{DynamicResource Pk.AccentText}" />
+                                                <TextBlock Text="{Binding UpdateSettings.ReleaseNotes}" Classes="caption" TextWrapping="Wrap" MaxHeight="160" />
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>

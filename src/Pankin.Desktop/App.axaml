@@ -8,31 +8,248 @@
         <local:ViewLocator />
     </Application.DataTemplates>
 
-    <Application.Styles>
-        <FluentTheme />
+    <!--
+        Pankin Design System · "Graphite Glass"
+        统一的设计令牌（颜色 / 圆角 / 阴影），全部通过 DynamicResource 引用，
+        随 RequestedThemeVariant（浅色 / 深色 / 跟随系统）自动切换。
+        命名约定：Pk.* 为画刷，Pk.Radius.* 为圆角。
+    -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <!-- ============ 深色主题 ============ -->
+                <ResourceDictionary x:Key="Dark">
+                    <!-- 表面层级 -->
+                    <SolidColorBrush x:Key="Pk.Surface" Color="#F5141417" />
+                    <SolidColorBrush x:Key="Pk.SurfaceSolid" Color="#17171B" />
+                    <SolidColorBrush x:Key="Pk.SurfaceSidebar" Color="#0AFFFFFF" />
+                    <SolidColorBrush x:Key="Pk.SurfaceRaised" Color="#0CFFFFFF" />
+                    <SolidColorBrush x:Key="Pk.SurfaceInput" Color="#0FFFFFFF" />
+                    <SolidColorBrush x:Key="Pk.SurfaceHover" Color="#12FFFFFF" />
+                    <SolidColorBrush x:Key="Pk.SurfacePressed" Color="#1AFFFFFF" />
+                    <SolidColorBrush x:Key="Pk.SurfaceFooter" Color="#06FFFFFF" />
+                    <!-- 描边 -->
+                    <SolidColorBrush x:Key="Pk.Stroke" Color="#14FFFFFF" />
+                    <SolidColorBrush x:Key="Pk.StrokeStrong" Color="#24FFFFFF" />
+                    <SolidColorBrush x:Key="Pk.Divider" Color="#0FFFFFFF" />
+                    <!-- 文字 -->
+                    <SolidColorBrush x:Key="Pk.Text" Color="#F2F3F5" />
+                    <SolidColorBrush x:Key="Pk.TextSecondary" Color="#A1A4AE" />
+                    <SolidColorBrush x:Key="Pk.TextTertiary" Color="#6C6F7A" />
+                    <SolidColorBrush x:Key="Pk.TextOnAccent" Color="#FFFFFF" />
+                    <!-- 强调色（靛紫） -->
+                    <SolidColorBrush x:Key="Pk.Accent" Color="#8B8DFF" />
+                    <SolidColorBrush x:Key="Pk.AccentStrong" Color="#6E6BF5" />
+                    <SolidColorBrush x:Key="Pk.AccentSoft" Color="#2B8B8DFF" />
+                    <SolidColorBrush x:Key="Pk.AccentSofter" Color="#178B8DFF" />
+                    <SolidColorBrush x:Key="Pk.AccentText" Color="#B7B8FF" />
+                    <!-- 语义色 -->
+                    <SolidColorBrush x:Key="Pk.Success" Color="#4ADE80" />
+                    <SolidColorBrush x:Key="Pk.Warning" Color="#FBBF24" />
+                    <SolidColorBrush x:Key="Pk.Danger" Color="#F87171" />
+                    <SolidColorBrush x:Key="Pk.DangerSoft" Color="#26F87171" />
+                    <!-- 键帽 -->
+                    <SolidColorBrush x:Key="Pk.KeycapBg" Color="#10FFFFFF" />
+                    <SolidColorBrush x:Key="Pk.KeycapStroke" Color="#1FFFFFFF" />
+                    <!-- 顶部高光渐变 -->
+                    <LinearGradientBrush x:Key="Pk.Sheen" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0.0" Color="#0EFFFFFF" />
+                        <GradientStop Offset="0.35" Color="#00FFFFFF" />
+                    </LinearGradientBrush>
+                </ResourceDictionary>
 
-        <!-- 全局字体设定：优先使用 Noto Sans CJK SC 保证中文与英文清晰锐利统一 -->
+                <!-- ============ 浅色主题 ============ -->
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="Pk.Surface" Color="#F7FBFBFC" />
+                    <SolidColorBrush x:Key="Pk.SurfaceSolid" Color="#FBFBFC" />
+                    <SolidColorBrush x:Key="Pk.SurfaceSidebar" Color="#06000000" />
+                    <SolidColorBrush x:Key="Pk.SurfaceRaised" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="Pk.SurfaceInput" Color="#0A000000" />
+                    <SolidColorBrush x:Key="Pk.SurfaceHover" Color="#0D000000" />
+                    <SolidColorBrush x:Key="Pk.SurfacePressed" Color="#16000000" />
+                    <SolidColorBrush x:Key="Pk.SurfaceFooter" Color="#05000000" />
+                    <SolidColorBrush x:Key="Pk.Stroke" Color="#14000000" />
+                    <SolidColorBrush x:Key="Pk.StrokeStrong" Color="#1F000000" />
+                    <SolidColorBrush x:Key="Pk.Divider" Color="#0F000000" />
+                    <SolidColorBrush x:Key="Pk.Text" Color="#18191C" />
+                    <SolidColorBrush x:Key="Pk.TextSecondary" Color="#5D616C" />
+                    <SolidColorBrush x:Key="Pk.TextTertiary" Color="#8E929C" />
+                    <SolidColorBrush x:Key="Pk.TextOnAccent" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="Pk.Accent" Color="#5B57E8" />
+                    <SolidColorBrush x:Key="Pk.AccentStrong" Color="#4A45D6" />
+                    <SolidColorBrush x:Key="Pk.AccentSoft" Color="#1F5B57E8" />
+                    <SolidColorBrush x:Key="Pk.AccentSofter" Color="#105B57E8" />
+                    <SolidColorBrush x:Key="Pk.AccentText" Color="#4A45D6" />
+                    <SolidColorBrush x:Key="Pk.Success" Color="#16A34A" />
+                    <SolidColorBrush x:Key="Pk.Warning" Color="#D97706" />
+                    <SolidColorBrush x:Key="Pk.Danger" Color="#DC2626" />
+                    <SolidColorBrush x:Key="Pk.DangerSoft" Color="#1ADC2626" />
+                    <SolidColorBrush x:Key="Pk.KeycapBg" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="Pk.KeycapStroke" Color="#22000000" />
+                    <LinearGradientBrush x:Key="Pk.Sheen" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Offset="0.0" Color="#80FFFFFF" />
+                        <GradientStop Offset="0.35" Color="#00FFFFFF" />
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <CornerRadius x:Key="Pk.Radius.Window">16</CornerRadius>
+            <CornerRadius x:Key="Pk.Radius.Card">12</CornerRadius>
+            <CornerRadius x:Key="Pk.Radius.Control">8</CornerRadius>
+            <CornerRadius x:Key="Pk.Radius.Pill">999</CornerRadius>
+            <FontFamily x:Key="Pk.Font">Inter, Noto Sans CJK SC, Noto Sans SC, sans-serif</FontFamily>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme>
+            <!-- 让 Fluent 原生控件（开关、复选框、滑块、下拉框焦点等）同步使用品牌强调色 -->
+            <FluentTheme.Palettes>
+                <ColorPaletteResources x:Key="Dark" Accent="#7B7CF8" RegionColor="#17171B" />
+                <ColorPaletteResources x:Key="Light" Accent="#5B57E8" RegionColor="#FBFBFC" />
+            </FluentTheme.Palettes>
+        </FluentTheme>
+
+        <!-- ============ 排版 ============ -->
         <Style Selector="Window">
-            <Setter Property="FontFamily" Value="Noto Sans CJK SC, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" />
+            <Setter Property="FontFamily" Value="{StaticResource Pk.Font}" />
             <Setter Property="FontWeight" Value="Regular" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
         </Style>
         <Style Selector="TextBlock">
-            <Setter Property="FontFamily" Value="Noto Sans CJK SC, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" />
+            <Setter Property="FontFamily" Value="{StaticResource Pk.Font}" />
         </Style>
         <Style Selector="TextBox">
-            <Setter Property="FontFamily" Value="Noto Sans CJK SC, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" />
+            <Setter Property="FontFamily" Value="{StaticResource Pk.Font}" />
         </Style>
         <Style Selector="Button">
-            <Setter Property="FontFamily" Value="Noto Sans CJK SC, Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" />
+            <Setter Property="FontFamily" Value="{StaticResource Pk.Font}" />
         </Style>
 
-        <!-- 消除启动器/剪贴板无边框搜索框的默认蓝色焦点粗框与背景变化 -->
+        <Style Selector="TextBlock.h1">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+        </Style>
+        <Style Selector="TextBlock.h2">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+        </Style>
+        <Style Selector="TextBlock.body">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+        </Style>
+        <Style Selector="TextBlock.secondary">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextSecondary}" />
+        </Style>
+        <Style Selector="TextBlock.caption">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextTertiary}" />
+        </Style>
+        <!-- 小号分组标题：大写字距感 -->
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="LetterSpacing" Value="0.6" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextTertiary}" />
+        </Style>
+
+        <!-- ============ 窗口外壳 ============ -->
+        <!-- 主玻璃面板（启动器 / 剪贴板 / 超级面板等无边框窗口的根容器） -->
+        <Style Selector="Border.frosted-panel">
+            <Setter Property="CornerRadius" Value="{DynamicResource Pk.Radius.Window}" />
+            <Setter Property="Background" Value="{DynamicResource Pk.Surface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.StrokeStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BoxShadow" Value="0 20 48 -12 #66000000" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <!-- 顶部 1px 高光层，叠加在 frosted-panel 内部 -->
+        <Style Selector="Border.sheen">
+            <Setter Property="Background" Value="{DynamicResource Pk.Sheen}" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="Border.divider-h">
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource Pk.Divider}" />
+        </Style>
+        <Style Selector="Border.divider-v">
+            <Setter Property="Width" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource Pk.Divider}" />
+        </Style>
+
+        <!-- ============ 卡片 ============ -->
+        <Style Selector="Border.module-card">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceRaised}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Stroke}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Card}" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceRaised}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Stroke}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Card}" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+        <!-- 图标底座（彩色方块） -->
+        <Style Selector="Border.icon-badge">
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <!-- 胶囊标签 -->
+        <Style Selector="Border.pill">
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Pill}" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceHover}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.pill > TextBlock">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextSecondary}" />
+        </Style>
+
+        <!-- ============ 键帽 ============ -->
+        <Style Selector="Border.keycap">
+            <Setter Property="Background" Value="{DynamicResource Pk.KeycapBg}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.KeycapStroke}" />
+            <Setter Property="BorderThickness" Value="1,1,1,2" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="6,1" />
+            <Setter Property="MinHeight" Value="20" />
+            <Setter Property="MinWidth" Value="20" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.keycap-text">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextSecondary}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextTertiary}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- ============ 输入框 ============ -->
+        <!-- 无边框大搜索框 -->
         <Style Selector="TextBox.pane-search">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="FocusAdorner" Value="{x:Null}" />
             <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource Pk.Accent}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource Pk.AccentSoft}" />
         </Style>
         <Style Selector="TextBox.pane-search:focus /template/ Border#PART_BorderElement">
             <Setter Property="Background" Value="Transparent" />
@@ -42,53 +259,190 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
         </Style>
+        <Style Selector="TextBox.pane-search /template/ TextBlock#PART_Watermark">
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextTertiary}" />
+        </Style>
+        <Style Selector="TextBox.pane-search:focus /template/ TextBlock#PART_Watermark">
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextTertiary}" />
+        </Style>
 
-        <!-- 原版 Keycap 键帽标签样式 -->
-        <Style Selector="Border.keycap">
-            <Setter Property="Background" Value="#1FFFFFFF" />
-            <Setter Property="BorderBrush" Value="#28FFFFFF" />
+        <!-- 常规填充输入框（设置页 / 表单） -->
+        <Style Selector="TextBox.pk-input">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceInput}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Stroke}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="5" />
-            <Setter Property="Padding" Value="7,2" />
-            <Setter Property="MinHeight" Value="20" />
-            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Control}" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource Pk.Accent}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource Pk.AccentSoft}" />
         </Style>
-        <Style Selector="TextBlock.keycap-text">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="Normal" />
-            <Setter Property="Foreground" Value="#E0FFFFFF" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
+        <Style Selector="TextBox.pk-input:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceHover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.StrokeStrong}" />
+        </Style>
+        <Style Selector="TextBox.pk-input:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceInput}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Accent}" />
+            <Setter Property="BorderThickness" Value="1" />
         </Style>
 
-        <!-- 卡片与磁贴悬停过渡 -->
+        <!-- ============ 按钮 ============ -->
+        <!-- 通用：去掉 Fluent 默认灰底，统一过渡 -->
+        <Style Selector="Button.ghost, Button.icon-btn, Button.tile-btn, Button.chip, Button.accent, Button.secondary-btn">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <!-- 幽灵按钮 -->
+        <Style Selector="Button.ghost">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Control}" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextSecondary}" />
+        </Style>
+        <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceHover}" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+        </Style>
+        <Style Selector="Button.ghost:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfacePressed}" />
+        </Style>
+
+        <!-- 圆形图标按钮 32x32 -->
+        <Style Selector="Button.icon-btn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Control}" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.icon-btn Path">
+            <Setter Property="Stroke" Value="{DynamicResource Pk.TextSecondary}" />
+        </Style>
+        <Style Selector="Button.icon-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceHover}" />
+        </Style>
+        <Style Selector="Button.icon-btn:pointerover Path">
+            <Setter Property="Stroke" Value="{DynamicResource Pk.Text}" />
+        </Style>
+        <Style Selector="Button.icon-btn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfacePressed}" />
+        </Style>
+
+        <!-- 主要操作按钮 -->
+        <Style Selector="Button.accent">
+            <Setter Property="Background" Value="{DynamicResource Pk.AccentStrong}" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextOnAccent}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Control}" />
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="FontWeight" Value="Medium" />
+        </Style>
+        <Style Selector="Button.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.Accent}" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.TextOnAccent}" />
+        </Style>
+        <Style Selector="Button.accent:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.AccentStrong}" />
+        </Style>
+
+        <!-- 次要按钮（描边） -->
+        <Style Selector="Button.secondary-btn">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceInput}" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Stroke}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Control}" />
+            <Setter Property="Padding" Value="14,7" />
+        </Style>
+        <Style Selector="Button.secondary-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceHover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.StrokeStrong}" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+        </Style>
+
+        <!-- 胶囊芯片按钮（快捷动作） -->
+        <Style Selector="Button.chip">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceRaised}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Stroke}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Pill}" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+        </Style>
+        <Style Selector="Button.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.AccentSofter}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.AccentSoft}" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+        </Style>
+
+        <!-- 磁贴按钮（应用网格） -->
         <Style Selector="Button.tile-btn">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="CornerRadius" Value="{StaticResource Pk.Radius.Card}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.tile-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceHover}" />
+        </Style>
+        <Style Selector="Button.tile-btn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfacePressed}" />
+        </Style>
+
+        <!-- ============ 列表 ============ -->
+        <Style Selector="ListBox.pk-list">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
         </Style>
-        <Style Selector="Button.tile-btn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1FFFFFFF" />
+        <Style Selector="ListBox.pk-list ListBoxItem">
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+        <Style Selector="ListBox.pk-list ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.1" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="ListBox.pk-list ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceHover}" />
+        </Style>
+        <Style Selector="ListBox.pk-list ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.AccentSoft}" />
+        </Style>
+        <Style Selector="ListBox.pk-list ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.AccentSoft}" />
+        </Style>
+        <Style Selector="ListBox.pk-list ListBoxItem:selected:focus /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.AccentSoft}" />
+        </Style>
+        <Style Selector="ListBox.pk-list ListBoxItem:selected:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.AccentSoft}" />
         </Style>
 
-        <!-- 统一 98.5% 不透字磨砂玻璃卡片与容器样式 -->
-        <Style Selector="Border.frosted-panel">
-            <Setter Property="CornerRadius" Value="20" />
-            <Setter Property="Background" Value="#FC1B1C22" />
-            <Setter Property="BorderBrush" Value="#32FFFFFF" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BoxShadow" Value="0 16 40 0 #66000000" />
-            <Setter Property="ClipToBounds" Value="True" />
+        <!-- ============ 菜单 ============ -->
+        <Style Selector="ContextMenu">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="4" />
         </Style>
-
-        <Style Selector="Border.module-card">
-            <Setter Property="Background" Value="#14FFFFFF" />
-            <Setter Property="BorderBrush" Value="#22FFFFFF" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="12" />
-            <Setter Property="Padding" Value="14" />
-            <Setter Property="Margin" Value="6" />
+        <Style Selector="MenuItem">
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="FontSize" Value="13" />
         </Style>
     </Application.Styles>
 </Application>

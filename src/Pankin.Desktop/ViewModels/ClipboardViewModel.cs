@@ -178,8 +178,9 @@ public partial class ClipboardViewModel : ViewModelBase, IDisposable
             _ => null
         };
 
+        int limit = Math.Clamp(_context.SettingsStore.Current.Clipboard.HistoryLimit, 10, 2000);
         var results = _context.ClipboardStorage.QueryEntries(
-            limit: 100,
+            limit: limit,
             search: string.IsNullOrWhiteSpace(SearchKeyword) ? null : SearchKeyword.Trim(),
             kind: filterKind,
             pinned: filterPinned);

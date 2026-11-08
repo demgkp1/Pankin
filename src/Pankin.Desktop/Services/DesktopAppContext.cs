@@ -92,9 +92,10 @@ public sealed class DesktopAppContext : IDisposable
                 new DelegateCapabilityModule(new ModuleInfo(ModuleIds.Clipboard, ModuleCategory.Clipboard, "clipboard", true, []),
                     onStart: _ => { ClipboardService.StartMonitoring(); return Task.CompletedTask; },
                     onStop: _ => { ClipboardService.StopMonitoring(); return Task.CompletedTask; }),
-                new DelegateCapabilityModule(new ModuleInfo(ModuleIds.Gestures, ModuleCategory.Mouse, "mouse", true, [])),
                 new DelegateCapabilityModule(new ModuleInfo(ModuleIds.SuperPanel, ModuleCategory.System, "sparkles", true,
-                    [new(ModuleIds.Clipboard, DependencyKind.Optional), new(ModuleIds.Ai, DependencyKind.Optional)])),
+                    [new(ModuleIds.Clipboard, DependencyKind.Optional), new(ModuleIds.Ai, DependencyKind.Optional)]),
+                    onStart: _ => { InputHook.SuperPanelEnabled = true; return Task.CompletedTask; },
+                    onStop: _ => { InputHook.SuperPanelEnabled = false; return Task.CompletedTask; }),
                 new DelegateCapabilityModule(new ModuleInfo(ModuleIds.Ai, ModuleCategory.Ai, "bot", true, [])),
                 new DelegateCapabilityModule(new ModuleInfo(ModuleIds.FolderJump, ModuleCategory.Files, "folder", true, [])),
                 new DelegateCapabilityModule(new ModuleInfo(ModuleIds.Rename, ModuleCategory.Files, "pencil", true, [])),
@@ -118,16 +119,20 @@ public sealed class DesktopAppContext : IDisposable
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
-        // 1. 后台预扫描桌面应用索引
-        _ = Task.Run(() => LauncherSearch.RefreshAppsAsync(ct), ct);
-
-        // 2. 启动剪贴板与 Primary Selection 监听
-        if (SettingsStore.Current.Clipboard.Enabled)
+        // 1. 初始化并还原各能力模块状态
+        if (Modules is ModuleHost host)
         {
-            ClipboardService.StartMonitoring();
+            await host.InitializeAsync(ct).ConfigureAwait(false);
         }
 
-        // 3. 启动 SharpHook 全局热键与鼠标手势钩子
+        // 2. 后台预扫描桌面应用索引
+        _ = Task.Run(() => LauncherSearch.RefreshAppsAsync(ct), ct);
+
+        // 3. 启动 SharpHook 全局热键与划词钩子
+        var s = SettingsStore.Current;
+        InputHook.UpdateHotkeys(s.Launcher.Hotkey, s.Clipboard.Hotkey, s.SuperPanel.Hotkey);
+        InputHook.SuperPanelEnabled = s.Modules.SuperPanel && s.SuperPanel.Enabled;
+        InputHook.ConfigureSelectionFilter(s.SuperPanel);
         await InputHook.StartAsync(ct).ConfigureAwait(false);
     }
 
@@ -139,6 +144,10 @@ public sealed class DesktopAppContext : IDisposable
             newSettings.General.UiLanguage,
             Pankin.Core.Localization.UiLanguageResolver.SystemLanguage());
         Pankin.Core.Localization.Strings.Initialize(resolvedLang);
+
+        InputHook.UpdateHotkeys(newSettings.Launcher.Hotkey, newSettings.Clipboard.Hotkey, newSettings.SuperPanel.Hotkey);
+        InputHook.SuperPanelEnabled = newSettings.Modules.SuperPanel && newSettings.SuperPanel.Enabled;
+        InputHook.ConfigureSelectionFilter(newSettings.SuperPanel);
     }
 
     private static AiConfig MapAiConfig(AiConfigSettings ai)

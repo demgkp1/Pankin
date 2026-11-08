@@ -91,14 +91,16 @@ public interface IClipboardService : IDisposable
 }
 
 /// <summary>
-/// 全局快捷键与鼠标侧键/手势监听接口
+/// 全局快捷键与鼠标划词监听接口
 /// </summary>
 public interface IGlobalInputHook : IDisposable
 {
     event EventHandler<GlobalHotkeyEventArgs>? HotkeyTriggered;
-    event EventHandler<MouseGestureProgressEventArgs>? GestureProgress;
-    event EventHandler<MouseGestureEventArgs>? GestureRecognized;
     event EventHandler<SelectionTriggeredEventArgs>? SelectionTriggered;
+
+    bool SuperPanelEnabled { get; set; }
+    void UpdateHotkeys(string launcherHotkey, string clipboardHotkey, string superPanelHotkey);
+    void ConfigureSelectionFilter(Pankin.Core.Settings.SuperPanelSettings settings);
 
     Task StartAsync(CancellationToken ct = default);
     Task StopAsync();
