@@ -12,7 +12,7 @@ namespace Pankin.Core.Updates;
 /// </summary>
 public sealed class UpdateService : IUpdateService, IDisposable
 {
-    public static readonly Uri DefaultSource = new("https://api.github.com/repos/LBEILC/Pankin/releases/latest");
+    public static readonly Uri DefaultSource = new("https://api.github.com/repos/demgkp1/Pankin/releases/latest");
 
     private readonly HttpClient _http;
     private readonly bool _ownsHttpClient;
@@ -360,7 +360,7 @@ public sealed class UpdateService : IUpdateService, IDisposable
             // 在 Linux 平台下无 Windows MSI 安装包：拉起浏览器打开 Release 页面并触发系统通知
             string destination = !string.IsNullOrEmpty(_readyPath) && File.Exists(_readyPath)
                 ? _readyPath
-                : (Latest?.PageUrl ?? "https://github.com/LBEILC/Pankin/releases");
+                : (Latest?.PageUrl ?? "https://github.com/demgkp1/Pankin/releases");
 
             _openReleaseUrlOrInstall(destination);
         }

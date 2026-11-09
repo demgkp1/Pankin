@@ -127,25 +127,22 @@ public partial class App : Application
             // 异步初始化底层服务并展示主界面/首次向导
             _ = InitializeDesktopContextAsync();
 
+            // 彻底移除首次运行向导，直接就绪常驻后台并唤起主启动器
             var context = DesktopAppContext.Instance;
             if (!context.SettingsStore.Current.General.SetupCompleted)
             {
-                var setupVm = new SetupViewModel(context.SetupWizardService, context.AutostartService, context.SettingsStore);
-                var setupWindow = new SetupWindow
+                var updated = context.SettingsStore.Current with
                 {
-                    DataContext = setupVm,
-                    Icon = appIcon
+                    General = context.SettingsStore.Current.General with { SetupCompleted = true }
                 };
-                setupWindow.Show();
+                context.SettingsStore.Save(updated);
             }
-            else
-            {
-                ApplySavedMainWindowPosition();
-                _mainWindow.Show();
-                _mainWindow.Activate();
-                _mainWindow.FocusSearchInput();
-                _mainWindowShownMs = Environment.TickCount64;
-            }
+
+            ApplySavedMainWindowPosition();
+            _mainWindow.Show();
+            _mainWindow.Activate();
+            _mainWindow.FocusSearchInput();
+            _mainWindowShownMs = Environment.TickCount64;
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -506,8 +503,38 @@ public partial class App : Application
             general.LauncherPositionX.HasValue &&
             general.LauncherPositionY.HasValue)
         {
+            var posX = general.LauncherPositionX.Value;
+            var posY = general.LauncherPositionY.Value;
+
+            try
+            {
+                var screen = _mainWindow.Screens.ScreenFromPoint(new PixelPoint(posX, posY))
+                             ?? _mainWindow.Screens.Primary;
+                if (screen != null)
+                {
+                    var wa = screen.WorkingArea;
+                    int winW = (int)(_mainWindow.Width > 0 ? _mainWindow.Width : 704);
+                    int winH = (int)(_mainWindow.Height > 0 ? _mainWindow.Height : 544);
+
+                    int clampedX = Math.Clamp(posX, wa.X, Math.Max(wa.X, wa.X + wa.Width - winW));
+                    int clampedY = Math.Clamp(posY, wa.Y, Math.Max(wa.Y, wa.Y + wa.Height - winH));
+
+                    _mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
+                    _mainWindow.Position = new PixelPoint(clampedX, clampedY);
+                    return;
+                }
+            }
+            catch
+            {
+                // 忽略多屏探测异常
+            }
+
             _mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
-            _mainWindow.Position = new PixelPoint(general.LauncherPositionX.Value, general.LauncherPositionY.Value);
+            _mainWindow.Position = new PixelPoint(posX, posY);
+        }
+        else
+        {
+            _mainWindow.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         }
     }
 

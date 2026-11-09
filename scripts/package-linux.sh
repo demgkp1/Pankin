@@ -9,7 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-VERSION="0.2.0"
+VERSION="0.2.1"
 APP_NAME="pankin"
 APP_DISPLAY_NAME="Pankin"
 DEB_ARCH="amd64"
@@ -79,7 +79,7 @@ Version: ${VERSION}
 Section: utils
 Priority: optional
 Architecture: ${DEB_ARCH}
-Maintainer: Pankin Project <https://github.com/Pankin/Pankin>
+Maintainer: Pankin Project <https://github.com/demgkp1/Pankin>
 Depends: libc6, libgcc-s1, libstdc++6, plocate, xclip, wl-clipboard, libnotify-bin
 Description: Native modern desktop productivity platform for Linux
  Pankin is a native, modern desktop productivity platform for Ubuntu/Linux.

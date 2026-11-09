@@ -84,7 +84,7 @@ public sealed class DesktopAppContext : IDisposable
         SetupWizardService = new SetupWizardService();
 
         UpdateService = new UpdateService(
-            currentVersion: "0.2.0",
+            currentVersion: "0.2.1",
             automatic: () => SettingsStore.Current.Update.AutoUpdate,
             openReleaseUrlOrInstall: url => _ = ActionHost.OpenAsync(url));
 

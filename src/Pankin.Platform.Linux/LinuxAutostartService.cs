@@ -45,7 +45,10 @@ public sealed class LinuxAutostartService : IAutostartService
                     Directory.CreateDirectory(dir);
                 }
 
-                var execPath = Environment.ProcessPath ?? "pankin";
+                var appImagePath = Environment.GetEnvironmentVariable("APPIMAGE");
+                var execPath = !string.IsNullOrWhiteSpace(appImagePath) && File.Exists(appImagePath)
+                    ? appImagePath
+                    : (Environment.ProcessPath ?? "pankin");
 
                 var content = new StringBuilder()
                     .AppendLine("[Desktop Entry]")
