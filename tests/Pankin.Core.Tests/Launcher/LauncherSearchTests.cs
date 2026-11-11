@@ -9,14 +9,19 @@ public class LauncherSearchTests
 {
     private sealed class FakeAppScanner(IReadOnlyList<AppEntry> apps) : IAppScanner
     {
+        public List<AppEntry> LaunchedApps { get; } = [];
+
         public Task<IReadOnlyList<AppEntry>> ScanAppsAsync(CancellationToken ct = default) =>
             Task.FromResult(apps);
 
         public IReadOnlyList<AppEntry> SearchApps(string query, int maxResults = 20) =>
             apps.Take(maxResults).ToList();
 
-        public Task<bool> LaunchAppAsync(AppEntry app, CancellationToken ct = default) =>
-            Task.FromResult(true);
+        public Task<bool> LaunchAppAsync(AppEntry app, CancellationToken ct = default)
+        {
+            LaunchedApps.Add(app);
+            return Task.FromResult(true);
+        }
     }
 
     private sealed class FakeFileSearcher(IReadOnlyList<FileSearchResult>? results = null) : IFileSearcher
@@ -39,7 +44,14 @@ public class LauncherSearchTests
 
     private sealed class FakeLauncherActionHost : ILauncherActionHost
     {
-        public Task<bool> OpenAsync(string pathOrUrl, bool elevated = false, CancellationToken ct = default) => Task.FromResult(true);
+        public List<string> OpenedTargets { get; } = [];
+
+        public Task<bool> OpenAsync(string pathOrUrl, bool elevated = false, CancellationToken ct = default)
+        {
+            OpenedTargets.Add(pathOrUrl);
+            return Task.FromResult(true);
+        }
+
         public Task<bool> RevealAsync(string path, CancellationToken ct = default) => Task.FromResult(true);
         public Task<bool> RunInTerminalAsync(string command, bool elevated = false, string? workingDir = null, CancellationToken ct = default) => Task.FromResult(true);
         public Task<bool> CopyTextAsync(string text, CancellationToken ct = default) => Task.FromResult(true);
@@ -50,7 +62,9 @@ public class LauncherSearchTests
     private static LauncherSearch CreateLauncherSearch(
         string tempConfigPath,
         IReadOnlyList<AppEntry>? apps = null,
-        IReadOnlyList<FileSearchResult>? files = null)
+        IReadOnlyList<FileSearchResult>? files = null,
+        FakeAppScanner? appScanner = null,
+        FakeLauncherActionHost? actionHost = null)
     {
         var sampleApps = apps ??
         [
@@ -59,9 +73,9 @@ public class LauncherSearchTests
             new("code", "Visual Studio Code", "代码编辑器", "code", null, "/usr/share/applications/code.desktop")
         ];
 
-        var appScanner = new FakeAppScanner(sampleApps);
+        appScanner ??= new FakeAppScanner(sampleApps);
         var fileSearcher = new FakeFileSearcher(files);
-        var actionHost = new FakeLauncherActionHost();
+        actionHost ??= new FakeLauncherActionHost();
         var settingsStore = new SettingsStore(tempConfigPath);
 
         var search = new LauncherSearch(
@@ -73,6 +87,137 @@ public class LauncherSearchTests
         // 等待初始扫描加载完成
         search.RefreshAppsAsync().GetAwaiter().GetResult();
         return search;
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AppSearchResult_ShouldLaunchAppAndRecordUsage()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            var app = new AppEntry("org.gnome.Calculator", "Calculator", "计算器", "gnome-calculator", null, "/usr/share/applications/org.gnome.Calculator.desktop");
+            var scanner = new FakeAppScanner([app]);
+            var host = new FakeLauncherActionHost();
+            using var search = CreateLauncherSearch(tempFile, appScanner: scanner, actionHost: host);
+            var result = await search.SearchAsync("jsq");
+            var item = Assert.Single(result.Items.Where(i => i.Kind == LauncherItemKind.App));
+            var usageChanges = 0;
+            search.UsageChanged += (_, _) => usageChanges++;
+
+            await search.ExecuteAsync(item);
+
+            Assert.Equal(item.Tag, Assert.Single(scanner.LaunchedApps));
+            Assert.Empty(host.OpenedTargets);
+            Assert.Equal(1, usageChanges);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData(LauncherGroups.Recent)]
+    [InlineData(LauncherGroups.Pinned)]
+    public async Task ExecuteAsync_HomeApp_ShouldLaunchApp(string group)
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            var app = new AppEntry("code", "Code", "代码编辑器", "code", null, "/usr/share/applications/code.desktop");
+            var scanner = new FakeAppScanner([app]);
+            var host = new FakeLauncherActionHost();
+            using var search = CreateLauncherSearch(tempFile, appScanner: scanner, actionHost: host);
+            var appId = Assert.Single(search.CachedApps).Id;
+            if (group == LauncherGroups.Recent)
+            {
+                search.RecordUsage(appId);
+            }
+            else
+            {
+                var store = new SettingsStore(tempFile);
+                store.Update(s => s with { Launcher = s.Launcher with { PinnedAppIds = [appId] } });
+                search.Dispose();
+            }
+
+            using var homeSearch = CreateLauncherSearch(tempFile, appScanner: scanner, actionHost: host);
+            var result = await homeSearch.SearchAsync("");
+            var item = Assert.Single(result.Items.Where(i => i.Kind == LauncherItemKind.App && i.Group == group));
+
+            await homeSearch.ExecuteAsync(item);
+
+            Assert.Equal(item.Tag, Assert.Single(scanner.LaunchedApps));
+            Assert.Empty(host.OpenedTargets);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AppNotInCache_ShouldLaunchPayload()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            var app = new AppEntry("custom-app", "Custom App", "自定义应用", "custom-app --new-window", null, "/home/user/.local/share/applications/custom-app.desktop");
+            var scanner = new FakeAppScanner([]);
+            var host = new FakeLauncherActionHost();
+            using var search = CreateLauncherSearch(tempFile, appScanner: scanner, actionHost: host);
+            var item = new LauncherItem(app.Id, LauncherItemKind.App, LauncherGroups.Applications, app.DisplayName, app.Exec, new LauncherIcon("app"), Tag: app);
+
+            await search.ExecuteAsync(item);
+
+            Assert.Equal(app, Assert.Single(scanner.LaunchedApps));
+            Assert.Empty(host.OpenedTargets);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_FileSearchResult_ShouldOpenFileInsteadOfLaunchingApp()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            var dir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var file = new FileSearchResult(Path.Combine(dir, "report.pdf"), "report.pdf", dir);
+            var scanner = new FakeAppScanner([]);
+            var host = new FakeLauncherActionHost();
+            using var search = CreateLauncherSearch(tempFile, files: [file], appScanner: scanner, actionHost: host);
+            var result = await search.SearchAsync("report");
+            var item = Assert.Single(result.Items.Where(i => i.Kind == LauncherItemKind.File));
+
+            await search.ExecuteAsync(item);
+
+            Assert.Equal(file.FullPath, Assert.Single(host.OpenedTargets));
+            Assert.Empty(scanner.LaunchedApps);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("code", LauncherItemKind.App, LauncherGroups.Applications, true)]
+    [InlineData("org.gnome.Calculator", LauncherItemKind.App, LauncherGroups.Recent, true)]
+    [InlineData("google-chrome", LauncherItemKind.App, LauncherGroups.Pinned, true)]
+    [InlineData("app:document", LauncherItemKind.File, LauncherGroups.Files, false)]
+    public void ApplicationSource_Owns_ShouldMatchAppKind(string id, LauncherItemKind kind, string group, bool expected)
+    {
+        var source = new ApplicationSource(new FakeAppScanner([]), new FakeLauncherActionHost(), _ => { });
+        var item = new LauncherItem(id, kind, group, "Item", null, new LauncherIcon("app"));
+
+        Assert.Equal(expected, source.Owns(item));
     }
 
     [Fact]

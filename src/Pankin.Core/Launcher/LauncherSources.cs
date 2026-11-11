@@ -23,6 +23,8 @@ public sealed class ApplicationSource : LauncherSource
     public override int Limit(SourceContext context) =>
         context.Settings.MaxAppRows * 7; // 默认网格每行 7 个，最多 MaxAppRows 行
 
+    public override bool Owns(LauncherItem item) => item.Kind == LauncherItemKind.App;
+
     public override Task<IReadOnlyList<LauncherItem>> SearchAsync(SourceContext context, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();

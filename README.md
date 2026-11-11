@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Ubuntu-24.04%20LTS-E95420?style=flat-square&logo=ubuntu&logoColor=white" alt="Ubuntu 24.04" />
   <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=flat-square&logo=dotnet&logoColor=white" alt=".NET 8" />
   <img src="https://img.shields.io/badge/Avalonia%20UI-11.1.3-8B8DFF?style=flat-square" alt="Avalonia UI" />
-  <img src="https://img.shields.io/badge/Version-0.2.0-blue?style=flat-square" alt="Version 0.2.0" />
+  <img src="https://img.shields.io/badge/Version-0.2.2-blue?style=flat-square" alt="Version 0.2.2" />
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" />
 </p>
 
@@ -77,21 +77,21 @@ sudo apt install -y plocate xclip wl-clipboard libnotify-bin
 
 ### 2. 方式 A：Debian 软件包安装 (.deb，推荐)
 
-下载最新的 `pankin_0.2.0_amd64.deb`：
+下载最新的 `pankin_0.2.2_amd64.deb`：
 
 ```bash
-sudo apt install ./pankin_0.2.0_amd64.deb
+sudo apt install ./pankin_0.2.2_amd64.deb
 ```
 
 安装后即可在应用菜单中找到 **Pankin**，或在终端输入 `pankin` 启动。
 
 ### 3. 方式 B：AppImage 免安装运行
 
-下载最新的 `Pankin-0.2.0-x86_64.AppImage`：
+下载最新的 `Pankin-0.2.2-x86_64.AppImage`：
 
 ```bash
-chmod +x Pankin-0.2.0-x86_64.AppImage
-./Pankin-0.2.0-x86_64.AppImage
+chmod +x Pankin-0.2.2-x86_64.AppImage
+./Pankin-0.2.2-x86_64.AppImage
 ```
 
 ---
@@ -139,8 +139,8 @@ bash scripts/package-linux.sh
 ```
 
 生成的安装包将存放在 `artifacts/` 目录下：
-* `artifacts/pankin_0.2.0_amd64.deb`
-* `artifacts/Pankin-0.2.0-x86_64.AppImage`
+* `artifacts/pankin_0.2.2_amd64.deb`
+* `artifacts/Pankin-0.2.2-x86_64.AppImage`
 * `artifacts/pankin.svg`
 
 ---
