@@ -9,7 +9,6 @@ namespace Pankin.Desktop.Views;
 
 public partial class ClipboardWindow : Window
 {
-    private long _lastActivatedMs;
 
     public ClipboardWindow()
     {
@@ -26,22 +25,12 @@ public partial class ClipboardWindow : Window
         };
 
         KeyDown += OnWindowKeyDown;
-        Activated += (_, _) => _lastActivatedMs = Environment.TickCount64;
         Opened += (_, _) =>
         {
-            _lastActivatedMs = Environment.TickCount64;
             FocusSearchInput();
         };
 
-        Deactivated += (_, _) =>
-        {
-            if (IsVisible &&
-                Environment.TickCount64 - _lastActivatedMs > 180 &&
-                DesktopAppContext.Instance.SettingsStore.Current.General.HideOnDeactivate)
-            {
-                PanelWindowBehavior.HideAfterDeactivation(this);
-            }
-        };
+        Deactivated += (_, _) => PanelWindowBehavior.HideAfterDeactivation(this);
 
         HistoryListBox.DoubleTapped += (_, _) =>
         {

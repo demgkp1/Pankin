@@ -11,7 +11,6 @@ namespace Pankin.Desktop.Views;
 
 public partial class SuperPanelWindow : Window
 {
-    private long _lastActivatedMs;
 
     public SuperPanelWindow()
     {
@@ -38,19 +37,9 @@ public partial class SuperPanelWindow : Window
             }
         };
 
-        Activated += (_, _) => _lastActivatedMs = Environment.TickCount64;
-        Opened += (_, _) => _lastActivatedMs = Environment.TickCount64;
 
         // 失焦/点击外部自动隐匿面板 (Hide-on-click-away)
-        Deactivated += (_, _) =>
-        {
-            if (IsVisible &&
-                Environment.TickCount64 - _lastActivatedMs > 180 &&
-                DesktopAppContext.Instance.SettingsStore.Current.General.HideOnDeactivate)
-            {
-                PanelWindowBehavior.HideAfterDeactivation(this);
-            }
-        };
+        Deactivated += (_, _) => PanelWindowBehavior.HideAfterDeactivation(this);
     }
 
     public void ShowNearPointer(SelectionContext context, string mode = "translate")

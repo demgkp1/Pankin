@@ -57,6 +57,10 @@ internal static class RuntimeRegressionVerification
     private static extern IntPtr XInternAtom(IntPtr display, string name, bool onlyIfExists);
     [DllImport("libX11.so.6")]
     private static extern int XCloseDisplay(IntPtr display);
+    [DllImport("libX11.so.6")]
+    private static extern int XSetInputFocus(IntPtr display, IntPtr focus, int revertTo, IntPtr time);
+    [DllImport("libX11.so.6")]
+    private static extern int XFlush(IntPtr display);
 
     private sealed class RegressionApp : App
     {
@@ -90,6 +94,13 @@ internal static class RuntimeRegressionVerification
 
         private async Task Verify()
         {
+            // Exercise the Wayland safety branch without claiming a native Wayland session.
+            // The actual test windows and focus events still belong to an isolated X server.
+            if (Environment.GetEnvironmentVariable("PANKIN_REGRESSION_NO_GLOBAL_POINTER") == "1")
+            {
+                Environment.SetEnvironmentVariable("XDG_SESSION_TYPE", "wayland");
+                Check(!PanelWindowBehavior.CanUseGlobalPointerCoordinates, "global-coordinate dismissal is disabled for the Wayland safety branch");
+            }
             var main = Window<Window>("_mainWindow");
             var clipboardWindow = Window<Window>("_clipboardWindow");
             var context = DesktopAppContext.Instance;
@@ -123,6 +134,8 @@ internal static class RuntimeRegressionVerification
             await WaitFor(() => ((MainViewModel)main.DataContext!).SearchResults.Any(i => i.CoreItem.Title.Contains("Regression Portable", StringComparison.OrdinalIgnoreCase)));
             Check(((MainViewModel)main.DataContext!).SearchResults.Any(i => i.CoreItem.Title.Contains("Regression Portable", StringComparison.OrdinalIgnoreCase)), "launcher discovers and searches a portable executable in the default ~/app directory");
 
+            await VerifyDeactivation(main, mainSearch, sender, "launcher");
+
             ToggleClipboardWindow(bypassThrottle: true);
             await Task.Delay(600);
             Check(clipboardWindow.IsVisible && !main.IsVisible, "clipboard panel replaces launcher");
@@ -130,11 +143,111 @@ internal static class RuntimeRegressionVerification
             var clipboardSearch = clipboardWindow.FindControl<TextBox>("SearchInput")!;
             await Click(clipboardSearch.PointToScreen(new Point(clipboardSearch.Bounds.Width - 12, clipboardSearch.Bounds.Height / 2)));
             Check(clipboardWindow.IsVisible, "real click inside clipboard search does not hide it");
+            await VerifyDeactivation(clipboardWindow, clipboardSearch, sender, "clipboard");
+            ToggleClipboardWindow(bypassThrottle: true);
+            await FocusWindow(clipboardWindow);
+            await Task.Delay(300);
             await Click(new PixelPoint(10, 10));
+            // Bare Xvfb has no window manager to focus a clicked external application.
+            if (!PanelWindowBehavior.CanUseGlobalPointerCoordinates) await FocusWindow(sender);
             await WaitFor(() => !clipboardWindow.IsVisible);
             Check(!clipboardWindow.IsVisible, "real click outside clipboard hides the panel");
             Check(Volatile.Read(ref pointerPresses) >= 3, "test mouse clicks were observed by the real global hook");
+            var super = Window<Window>("_superPanelWindow");
+            super.Position = new PixelPoint(300, 40);
+            super.Show();
+            await FocusWindow(super);
+            var superDrag = super.FindControl<Control>("TopDragArea")!;
+            await WaitFor(() => superDrag.Bounds.Width > 0);
+            await MovePointer(superDrag.PointToScreen(new Point(superDrag.Bounds.Width / 2, superDrag.Bounds.Height / 2)));
+            Check(super.IsPointerOver, "pointer starts inside super panel");
+            await FocusWindow(sender);
+            await WaitFor(() => !super.IsVisible);
+            Check(!super.IsVisible, "super panel hides after keyboard focus leaves with the pointer unmoved");
+
+            // A native context menu is part of its panel, not an external application.
+            main.Show();
+            await FocusWindow(main);
+            var originalMenu = mainSearch.ContextMenu;
+            var menu = new ContextMenu { ItemsSource = new[] { new MenuItem { Header = "Focus regression menu" } } };
+            mainSearch.ContextMenu = menu;
+            menu.Open(mainSearch);
+            await WaitFor(() => TopLevel.GetTopLevel(menu) is WindowBase);
+            var menuRoot = (WindowBase)TopLevel.GetTopLevel(menu)!;
+            // Avalonia 11.1.3 menus retain the owning window's native keyboard focus;
+            // forcing XSetInputFocus onto an override-redirect popup is not normal UI input.
+            await WaitFor(() => menuRoot.Bounds.Width > 0);
+            var menuPoint = menuRoot.PointToScreen(new Point(menuRoot.Bounds.Width / 2, menuRoot.Bounds.Height / 2));
+            Check(PanelWindowBehavior.ContainsScreenPointWithPopups(main, menuPoint.X, menuPoint.Y), "owned native popup bounds count as inside the panel");
+            await Task.Delay(350);
+            Check(main.IsVisible && menu.IsOpen, "opening an owned context menu does not dismiss its launcher");
+            await FocusWindow(sender);
+            await WaitFor(() => !main.IsVisible);
+            Check(!main.IsVisible, "launcher hides when focus leaves both the panel and its context menu");
+            menu.Close();
+            mainSearch.ContextMenu = originalMenu;
             sender.Close();
+        }
+
+        private async Task VerifyDeactivation(Window panel, TextBox search, Window external, string name)
+        {
+            await FocusWindow(panel);
+            await MovePointer(search.PointToScreen(new Point(search.Bounds.Width - 12, search.Bounds.Height / 2)));
+            Check(panel.IsPointerOver, $"pointer starts inside {name} before keyboard focus transfer");
+            await FocusWindow(external);
+            await WaitFor(() => !panel.IsVisible);
+            Check(!panel.IsVisible, $"{name} hides after keyboard focus leaves with the pointer unmoved");
+
+            // Native activation followed immediately by focus-out: no 180 ms event suppression.
+            panel.Show();
+            long activatedAt = 0;
+            void Activated(object? _, EventArgs __) => activatedAt = Environment.TickCount64;
+            panel.Activated += Activated;
+            await FocusWindow(panel);
+            Check(activatedAt != 0 && Environment.TickCount64 - activatedAt < 180, $"{name} rapid focus transfer occurs within the old activation guard");
+            await FocusWindow(external);
+            panel.Activated -= Activated;
+            await WaitFor(() => !panel.IsVisible);
+            Check(!panel.IsVisible, $"{name} hides even when deactivated immediately after activation");
+
+            panel.Show();
+            await FocusWindow(panel);
+            await FocusWindow(external);
+            await FocusWindow(panel);
+            await Task.Delay(350);
+            Check(panel.IsVisible && panel.IsActive, $"{name} temporary focus loss is cancelled when it reactivates");
+
+            var settings = DesktopAppContext.Instance.SettingsStore;
+            settings.Update(s => s with { General = s.General with { HideOnDeactivate = false } });
+            await FocusWindow(external);
+            await Task.Delay(350);
+            Check(panel.IsVisible, $"{name} respects disabled hide-on-deactivate");
+            settings.Update(s => s with { General = s.General with { HideOnDeactivate = true } });
+            await FocusWindow(panel);
+            await FocusWindow(external);
+            await WaitFor(() => !panel.IsVisible);
+            Check(!panel.IsVisible, $"{name} resumes hiding after the setting is enabled");
+        }
+
+        private static async Task FocusWindow(WindowBase window)
+        {
+            await WaitFor(() => window.IsVisible);
+            var handle = window.TryGetPlatformHandle() ?? throw new InvalidOperationException("Missing native window handle");
+            var display = XOpenDisplay(null);
+            if (display == IntPtr.Zero) throw new InvalidOperationException("Cannot open isolated display for focus transfer");
+            try
+            {
+                XSetInputFocus(display, handle.Handle, 2 /* RevertToParent */, IntPtr.Zero /* CurrentTime */);
+                XFlush(display);
+            }
+            finally { XCloseDisplay(display); }
+            await WaitFor(() => window.IsActive);
+        }
+
+        private static async Task MovePointer(PixelPoint point)
+        {
+            new EventSimulator().SimulateMouseMovement((short)point.X, (short)point.Y);
+            await Task.Delay(100);
         }
 
         private static async Task Click(PixelPoint point)
@@ -150,7 +263,7 @@ internal static class RuntimeRegressionVerification
         private static async Task WaitFor(Func<bool> condition)
         {
             var timer = Stopwatch.StartNew();
-            while (!condition() && timer.Elapsed < TimeSpan.FromSeconds(8)) await Task.Delay(50);
+            while (!condition() && timer.Elapsed < TimeSpan.FromSeconds(8)) await Task.Delay(10);
             if (!condition()) throw new InvalidOperationException("Timed out waiting for runtime regression condition");
         }
     }

@@ -13,7 +13,6 @@ namespace Pankin.Desktop.Views;
 
 public partial class MainWindow : Window
 {
-    private long _lastActivatedMs;
     private readonly DispatcherTimer _positionDebounceTimer;
     private bool _hasBeenShown;
 
@@ -79,28 +78,18 @@ public partial class MainWindow : Window
         Activated += (_, _) =>
         {
             _hasBeenShown = true;
-            _lastActivatedMs = Environment.TickCount64;
         };
 
         Opened += (_, _) =>
         {
             _hasBeenShown = true;
-            _lastActivatedMs = Environment.TickCount64;
             FocusSearchInput();
         };
 
         Closing += (_, _) => SaveWindowPositionIfNeeded();
 
         Deactivated += (_, _) =>
-        {
-            if (IsVisible &&
-                Environment.TickCount64 - _lastActivatedMs > 180 &&
-                DesktopAppContext.Instance.SettingsStore.Current.General.HideOnDeactivate)
-            {
-                SaveWindowPositionIfNeeded();
-                PanelWindowBehavior.HideAfterDeactivation(this);
-            }
-        };
+            PanelWindowBehavior.HideAfterDeactivation(this, SaveWindowPositionIfNeeded);
 
         PositionChanged += (_, _) =>
         {

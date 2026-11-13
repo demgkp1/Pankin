@@ -44,9 +44,13 @@ PANKIN_ISOLATED_DISPLAY=1 dotnet run \
 
 打包脚本为 AppDir 补齐 `.DirIcon`（可用时生成 PNG），并优先使用 `.tools/runtime-x86_64` 的本地 AppImage runtime，避免重建受 GitHub 在线下载影响；也可通过 `APPIMAGE_RUNTIME_FILE` 指定缓存文件。
 
-新版源码、更新检查器、设置页和 AppImage/deb 统一为 0.3.1，文件位于 `artifacts/`。本次不自动替换 `~/app` 中用户正在运行的旧 AppImage、不安装 deb、不注销或重启系统。更新时先退出旧应用，再替换固定路径的文件或启动新版包；已启用的旧自启动条目会在新版启动时刷新。
+新版源码、更新检查器、设置页和 AppImage/deb 统一为 0.3.2，文件位于 `artifacts/`。本次不自动替换 `~/app` 中用户正在运行的旧 AppImage、不安装 deb、不注销或重启系统。更新时先退出旧应用，再替换固定路径的文件或启动新版包；已启用的旧自启动条目会在新版启动时刷新。
 
 - 已验证 Desktop Entry 实际启动参数和真实应用后台启动。0.3.1 AppImage 在独立 Xvfb 中通过冒烟验证：进程正常运行、自动生成的无 BOM 自启动条目指向真实 AppImage、4 个原生面板窗口保持未映射（日志 `artifacts/release-0.3.1/appimage-smoke.log`）；**实际开机/注销登录后的自启动尚需人工确认**。
 - 隔离原生窗口验证运行于 X11；未声称完成真实 GNOME Wayland 合成器端到端验证。Wayland 分支避免不可靠全局坐标，依赖窗口真实失焦事件。
 - 本次修复文本历史读取链路，不新增图片或文件剪贴板采集能力，也不能恢复此前未记录的历史。
 - GNOME Wayland Primary Selection 仍依赖可用的静默 X11 后端；无 `xclip` 时不再通过抢焦点的 `wl-paste` 临时窗口回退。
+
+## 0.3.2 失焦隐藏补修
+
+0.3.1 的延迟判断仍把 `IsPointerOver` 当作焦点条件，并丢弃刚激活后的失焦事件，导致鼠标未移动的应用切换和快速失焦漏隐藏。0.3.2 修正这些条件并增加真实原生焦点转移回归；完整说明及隔离验证方法见 [失焦隐藏回归报告](focus-loss-regressions.md)。先前 0.3.1 的上述冒烟检查不等于已覆盖这些失焦场景。

@@ -453,7 +453,7 @@ public partial class App : Application
                 {
                     if (win != null && win.IsVisible && (now - shownMs > 250))
                     {
-                        if (!PanelWindowBehavior.ContainsScreenPoint(win, pt.X, pt.Y) && !win.IsPointerOver)
+                        if (!PanelWindowBehavior.ContainsScreenPointWithPopups(win, pt.X, pt.Y) && !win.IsPointerOver)
                         {
                             win.Hide();
                         }
