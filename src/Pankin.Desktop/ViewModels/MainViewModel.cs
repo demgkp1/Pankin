@@ -350,7 +350,7 @@ public partial class MainViewModel : ViewModelBase
 
     public bool IsSearchEmpty => string.IsNullOrWhiteSpace(SearchQuery);
 
-    public string QuickActionTitle => $"对「{(SearchQuery.Length > 16 ? SearchQuery[..16] + "..." : SearchQuery)}」进行操作：";
+    public string QuickActionTitle => $"对「{(SearchQuery.Length > 24 ? SearchQuery[..24] + "…" : SearchQuery)}」";
 
     [ObservableProperty]
     private LauncherListItem? _selectedItem;
@@ -397,19 +397,16 @@ public partial class MainViewModel : ViewModelBase
             });
         }
 
-        InitPinnedTools();
         LoadDefaultApps();
         BuildQuickActions();
 
         _context.LauncherSearch.UsageChanged += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            InitPinnedTools();
             LoadDefaultApps();
         });
         _context.SettingsStore.Changed += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             OnPropertyChanged(nameof(HotkeyDisplay));
-            InitPinnedTools();
             LoadDefaultApps();
         });
     }
@@ -444,7 +441,6 @@ public partial class MainViewModel : ViewModelBase
             }
         });
 
-        InitPinnedTools();
         LoadDefaultApps();
     }
 
@@ -640,6 +636,7 @@ public partial class MainViewModel : ViewModelBase
 
     public void LoadDefaultApps()
     {
+        InitPinnedTools();
         RecentApps.Clear();
         int maxCount = Math.Clamp(_context.SettingsStore.Current.Launcher.MaxRecentApps, 1, 28);
         var apps = _context.LauncherSearch.GetRecentApps(maxCount);
@@ -656,19 +653,19 @@ public partial class MainViewModel : ViewModelBase
     {
         QuickActions.Clear();
 
-        QuickActions.Add(new QuickActionTile("划词翻译", LucideIcons.Translate, () =>
+        QuickActions.Add(new QuickActionTile("翻译", LucideIcons.Translate, () =>
         {
             RequestHideWindow?.Invoke();
             RequestOpenSuperPanel?.Invoke(SearchQuery, "translate");
         }));
 
-        QuickActions.Add(new QuickActionTile("AI 追问", LucideIcons.Ai, () =>
+        QuickActions.Add(new QuickActionTile("问 AI", LucideIcons.Ai, () =>
         {
             RequestHideWindow?.Invoke();
             RequestOpenSuperPanel?.Invoke(SearchQuery, "chat");
         }));
 
-        QuickActions.Add(new QuickActionTile("搜寻文件", LucideIcons.Folder, () =>
+        QuickActions.Add(new QuickActionTile("搜文件", LucideIcons.Folder, () =>
         {
             if (!SearchQuery.StartsWith("f "))
             {
@@ -676,19 +673,19 @@ public partial class MainViewModel : ViewModelBase
             }
         }));
 
-        QuickActions.Add(new QuickActionTile("核心总结", LucideIcons.Doc, () =>
+        QuickActions.Add(new QuickActionTile("总结", LucideIcons.Doc, () =>
         {
             RequestHideWindow?.Invoke();
             RequestOpenSuperPanel?.Invoke(SearchQuery, "summary");
         }));
 
-        QuickActions.Add(new QuickActionTile("必应搜索", LucideIcons.Search, () =>
+        QuickActions.Add(new QuickActionTile("必应", LucideIcons.Search, () =>
         {
             RequestHideWindow?.Invoke();
             LaunchWebUrl($"https://cn.bing.com/search?q={Uri.EscapeDataString(SearchQuery)}");
         }));
 
-        QuickActions.Add(new QuickActionTile("网页检索", LucideIcons.Grid, () =>
+        QuickActions.Add(new QuickActionTile("网页", LucideIcons.Grid, () =>
         {
             RequestHideWindow?.Invoke();
             LaunchWebUrl($"https://www.baidu.com/s?wd={Uri.EscapeDataString(SearchQuery)}");

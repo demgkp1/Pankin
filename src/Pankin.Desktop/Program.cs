@@ -12,6 +12,7 @@ sealed class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .WithInterFont()
             .With(new X11PlatformOptions { WmClass = "pankin" })
             .LogToTrace();
 }

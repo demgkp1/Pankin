@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -18,6 +20,18 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        void UpdateMaterial()
+        {
+            ReadabilityShield.IsVisible = ActualTransparencyLevel != WindowTransparencyLevel.Blur
+                && ActualTransparencyLevel != WindowTransparencyLevel.AcrylicBlur;
+        }
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == ActualTransparencyLevelProperty) UpdateMaterial();
+        };
+        Opened += (_, _) => UpdateMaterial();
+        UpdateMaterial();
 
         _positionDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _positionDebounceTimer.Tick += (_, _) =>
@@ -163,7 +177,10 @@ public partial class MainWindow : Window
         // Ctrl+P 固定当前选中的应用
         if (isCtrl && e.Key == Key.P)
         {
-            vm.TogglePinCurrentCommand.Execute(null);
+            if (vm.IsSearchEmpty && FocusManager?.GetFocusedElement() is Button { DataContext: AppTileItem tile })
+                tile.TogglePinCommand?.Execute(null);
+            else
+                vm.TogglePinCurrentCommand.Execute(null);
             e.Handled = true;
             return;
         }
@@ -171,7 +188,10 @@ public partial class MainWindow : Window
         // Ctrl+Enter 打开所在目录
         if (isCtrl && e.Key == Key.Enter)
         {
-            vm.OpenContainingFolderCommand.Execute(null);
+            if (vm.IsSearchEmpty && FocusManager?.GetFocusedElement() is Button { DataContext: AppTileItem tile })
+                tile.OpenLocationCommand?.Execute(null);
+            else
+                vm.OpenContainingFolderCommand.Execute(null);
             e.Handled = true;
             return;
         }
@@ -201,6 +221,47 @@ public partial class MainWindow : Window
             }
         }
 
+        // Navigate actual tile positions, including incomplete rows and the separate pinned grid.
+        if (vm.IsSearchEmpty && !isAlt && !isCtrl && e.Key is Key.Down or Key.Up or Key.Left or Key.Right)
+        {
+            var tiles = this.GetVisualDescendants().OfType<Button>()
+                .Where(b => b.Classes.Contains("app-tile") && b.IsEffectivelyVisible).ToArray();
+            var focused = FocusManager?.GetFocusedElement();
+            int index = Array.FindIndex(tiles, b => ReferenceEquals(b, focused));
+            // Do not steal Left/Right from text editing.
+            if (index >= 0 || e.Key == Key.Down)
+            {
+                Button? target = null;
+                if (index < 0) target = tiles.FirstOrDefault();
+                else if (e.Key is Key.Left or Key.Right)
+                {
+                    int next = index + (e.Key == Key.Left ? -1 : 1);
+                    if (next < 0) SearchInput.Focus(NavigationMethod.Directional);
+                    else target = tiles[Math.Min(next, tiles.Length - 1)];
+                }
+                else
+                {
+                    Avalonia.Point Center(Button button) => button.TranslatePoint(
+                        new Avalonia.Point(button.Bounds.Width / 2, button.Bounds.Height / 2), this) ?? default;
+                    var origin = Center(tiles[index]);
+                    target = tiles.Where(b => e.Key == Key.Down ? Center(b).Y > origin.Y + 1 : Center(b).Y < origin.Y - 1)
+                        .OrderBy(b => Math.Abs(Center(b).Y - origin.Y))
+                        .ThenBy(b => Math.Abs(Center(b).X - origin.X)).FirstOrDefault();
+                    if (target == null && e.Key == Key.Up) SearchInput.Focus(NavigationMethod.Directional);
+                }
+                if (target != null)
+                {
+                    target.Focus(NavigationMethod.Directional);
+                    target.BringIntoView();
+                }
+                e.Handled = true;
+                return;
+            }
+        }
+
+        // Let focused buttons (home tiles / quick actions / settings) handle Enter themselves.
+        if (e.Key == Key.Enter && FocusManager?.GetFocusedElement() is Button) return;
+
         // 普通 Enter 执行默认选中动作
         if (e.Key == Key.Enter && !isAlt && !isCtrl)
         {
@@ -210,7 +271,7 @@ public partial class MainWindow : Window
         }
 
         // 上下箭头在搜索结果列表中导航
-        if (!vm.IsSearchEmpty && vm.SearchResults.Count > 0)
+        if (!vm.IsSearchEmpty && vm.SearchResults.Count > 0 && FocusManager?.GetFocusedElement() is not Button)
         {
             if (e.Key == Key.Down)
             {

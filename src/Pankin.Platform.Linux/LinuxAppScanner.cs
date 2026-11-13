@@ -26,6 +26,10 @@ public sealed partial class LinuxAppScanner : IAppScanner
     [GeneratedRegex(@"\s+")]
     private static partial Regex MultipleWhitespaceRegex();
 
+    private readonly Lazy<LinuxIconResolver> _icons = new(() => new LinuxIconResolver());
+
+    public byte[]? LoadIconPng(string iconName, int pixels = 96) => _icons.Value.LoadPng(iconName, pixels);
+
     private readonly object _lock = new();
     private IReadOnlyList<AppEntry> _cachedApps = Array.Empty<AppEntry>();
 

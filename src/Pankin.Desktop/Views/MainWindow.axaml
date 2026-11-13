@@ -2,496 +2,262 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Pankin.Desktop.ViewModels"
         xmlns:loc="using:Pankin.Desktop.Localization"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="704" d:DesignHeight="544"
         x:Class="Pankin.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Width="704" Height="544"
-        ShowInTaskbar="False"
-        SystemDecorations="None"
-        Topmost="True"
+        Width="640" Height="496" UseLayoutRounding="True"
+        ShowInTaskbar="False" SystemDecorations="None" Topmost="True"
         TransparencyLevelHint="AcrylicBlur, Blur, Transparent"
-        Background="Transparent"
-        ExtendClientAreaToDecorationsHint="True"
-        WindowStartupLocation="CenterScreen"
-        CanResize="False"
+        Background="Transparent" ExtendClientAreaToDecorationsHint="True"
+        WindowStartupLocation="CenterScreen" CanResize="False"
         Title="{loc:Loc Launcher_Title}">
 
+    <Window.Resources>
+        <ControlTheme x:Key="LauncherResultTheme" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Template">
+                <ControlTemplate><ContentPresenter Name="PART_ContentPresenter" Background="Transparent" BorderBrush="Transparent" BorderThickness="0" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" HorizontalContentAlignment="Stretch" /></ControlTemplate>
+            </Setter>
+        </ControlTheme>
+        <DataTemplate x:Key="AppTileTemplate" x:DataType="vm:AppTileItem">
+            <Button Classes="app-tile" Command="{Binding LaunchCommand}"
+                    ToolTip.Tip="{Binding Name}" AutomationProperties.Name="{Binding Name}">
+                <Button.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="打开" Command="{Binding ExecuteCommand}" />
+                        <MenuItem Header="{Binding PinMenuHeader}" Command="{Binding TogglePinCommand}" />
+                        <MenuItem Header="打开文件所在位置" Command="{Binding OpenLocationCommand}" IsVisible="{Binding CanOpenLocation}" />
+                        <MenuItem Header="以管理员身份运行" Command="{Binding RunAsAdminCommand}" IsVisible="{Binding CanRunAsAdmin}" />
+                    </ContextMenu>
+                </Button.ContextMenu>
+                <StackPanel Spacing="6" HorizontalAlignment="Center">
+                    <Panel Classes="app-icon" HorizontalAlignment="Center">
+                        <Image Source="{Binding IconBitmap}"
+                               IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}"
+                               RenderOptions.BitmapInterpolationMode="HighQuality" />
+                        <Border Classes="icon-case" IsVisible="{Binding ShowIconPath}">
+                            <Path Data="{Binding IconGeometry}" />
+                        </Border>
+                        <!-- An unbranded, neutral fallback, never a fabricated app logo. -->
+                        <Border Classes="icon-case" IsVisible="{Binding ShowGlyph}">
+                            <Path Data="M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z" />
+                        </Border>
+                    </Panel>
+                    <TextBlock Text="{Binding Name}" Width="76" Height="32" FontSize="11.5"
+                               Foreground="{DynamicResource Pk.Text}" TextAlignment="Center"
+                               TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+    </Window.Resources>
+
     <Window.Styles>
-        <!-- 结果行：选中时左侧出现强调色指示条 -->
-        <Style Selector="ListBoxItem Border.sel-bar">
-            <Setter Property="Opacity" Value="0" />
-        </Style>
-        <Style Selector="ListBoxItem:selected Border.sel-bar">
+        <Style Selector="TextBox.pane-search /template/ TextBlock#PART_Watermark, TextBox.pane-search:focus /template/ TextBlock#PART_Watermark">
+            <Setter Property="Foreground" Value="{DynamicResource Pk.LauncherMuted}" />
             <Setter Property="Opacity" Value="1" />
         </Style>
-        <Style Selector="ListBoxItem:selected TextBlock.row-title">
-            <Setter Property="Foreground" Value="{DynamicResource Pk.Text}" />
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Regular" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.LauncherMuted}" />
         </Style>
-        <!-- 选中行显示 “↵” 提示 -->
-        <Style Selector="ListBoxItem Border.enter-hint">
-            <Setter Property="IsVisible" Value="False" />
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.LauncherMuted}" />
         </Style>
-        <Style Selector="ListBoxItem:selected Border.enter-hint">
-            <Setter Property="IsVisible" Value="True" />
+        <Style Selector="Border.keycap">
+            <Setter Property="Background" Value="{DynamicResource Pk.LauncherKey}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="4,1" />
         </Style>
+        <Style Selector="TextBlock.keycap-text">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Foreground" Value="{DynamicResource Pk.LauncherMuted}" />
+        </Style>
+        <Style Selector="Button.app-tile, Button.quick-action">
+            <Setter Property="Width" Value="82" />
+            <Setter Property="Height" Value="86" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.app-tile /template/ ContentPresenter#PART_ContentPresenter, Button.quick-action /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Transitions">
+                <Transitions><BrushTransition Property="Background" Duration="0:0:0.09" /></Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.app-tile:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.quick-action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceHover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Stroke}" />
+        </Style>
+        <Style Selector="Button.app-tile:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.quick-action:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.AccentSofter}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Accent}" />
+        </Style>
+        <Style Selector="Button.app-tile:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.quick-action:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfacePressed}" />
+        </Style>
+        <Style Selector="Panel.app-icon"><Setter Property="Width" Value="36" /><Setter Property="Height" Value="36" /></Style>
+        <Style Selector="Border.icon-case">
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Background" Value="{DynamicResource Pk.SurfaceRaised}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.Stroke}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.icon-case Path">
+            <Setter Property="Width" Value="18" /><Setter Property="Height" Value="18" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="Stroke" Value="{DynamicResource Pk.TextSecondary}" />
+            <Setter Property="StrokeThickness" Value="1.6" />
+            <Setter Property="StrokeJoin" Value="Round" /><Setter Property="StrokeLineCap" Value="Round" />
+            <Setter Property="HorizontalAlignment" Value="Center" /><Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ItemsControl#PinnedItems Button.app-tile"><Setter Property="Height" Value="74" /></Style>
+        <Style Selector="ItemsControl#PinnedItems Panel.app-icon"><Setter Property="Width" Value="28" /><Setter Property="Height" Value="28" /></Style>
+        <Style Selector="ItemsControl#PinnedItems Border.icon-case Path"><Setter Property="Width" Value="16" /><Setter Property="Height" Value="16" /></Style>
+        <Style Selector="Button.quick-action"><Setter Property="Height" Value="64" /></Style>
+        <!-- Group headings deliberately live outside result-row, not inside selection paint. -->
+
+        <Style Selector="Border.result-row">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" /><Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Transitions"><Transitions><BrushTransition Property="Background" Duration="0:0:0.09" /></Transitions></Setter>
+        </Style>
+        <Style Selector="ListBoxItem:pointerover Border.result-row"><Setter Property="Background" Value="{DynamicResource Pk.SurfaceHover}" /></Style>
+        <Style Selector="ListBoxItem:selected Border.result-row">
+            <Setter Property="Background" Value="{DynamicResource Pk.AccentSofter}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Pk.AccentSoft}" />
+        </Style>
+        <Style Selector="ListBoxItem:focus-visible Border.result-row"><Setter Property="BorderBrush" Value="{DynamicResource Pk.Accent}" /></Style>
+        <Style Selector="ListBoxItem:pressed Border.result-row"><Setter Property="Background" Value="{DynamicResource Pk.SurfacePressed}" /></Style>
+        <Style Selector="Border.sel-bar, Path.enter-hint"><Setter Property="Opacity" Value="0" /></Style>
+        <Style Selector="ListBoxItem:selected Border.sel-bar, ListBoxItem:selected Path.enter-hint"><Setter Property="Opacity" Value="1" /></Style>
     </Window.Styles>
 
-    <!-- 外层留白用于展示投影 -->
-    <Border Classes="frosted-panel"
-            Margin="12"
-            CornerRadius="{Binding PanelCornerRadius}">
-        <Panel>
-            <!-- 顶部柔和高光 -->
-            <Border Classes="sheen" CornerRadius="{Binding PanelCornerRadius}" />
-
-            <Grid RowDefinitions="Auto,Auto,*,Auto">
-                <!-- ===== 搜索栏 ===== -->
-                <Border Grid.Row="0"
-                        Name="TopDragArea"
-                        Background="Transparent"
-                        Height="64"
-                        Padding="22,0,14,0">
-                    <Grid ColumnDefinitions="Auto,*,Auto">
-                        <Path Grid.Column="0"
-                              Data="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35"
-                              Width="19" Height="19"
-                              Stretch="Uniform"
-                              Stroke="{DynamicResource Pk.Accent}"
-                              StrokeThickness="2"
-                              StrokeJoin="Round"
-                              StrokeLineCap="Round"
-                              Margin="0,0,14,0"
-                              VerticalAlignment="Center" />
-
-                        <TextBox Grid.Column="1"
-                                 Name="SearchInput"
-                                 Classes="pane-search"
-                                 Text="{Binding SearchQuery, Mode=TwoWay}"
-                                 Watermark="{loc:Loc Launcher_SearchPlaceholder}"
-                                 FontSize="18"
-                                 VerticalAlignment="Center" />
-
-                        <Button Grid.Column="2"
-                                Classes="icon-btn"
-                                Command="{Binding OpenSettingsCommand}"
-                                ToolTip.Tip="{loc:Loc Common_Settings}"
-                                VerticalAlignment="Center">
-                            <Path Data="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.830 2.830l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
-                                  Width="16" Height="16"
-                                  Stretch="Uniform"
-                                  StrokeThickness="1.75"
-                                  StrokeJoin="Round"
-                                  StrokeLineCap="Round" />
-                        </Button>
-                    </Grid>
-                </Border>
-
-                <Border Grid.Row="1" Classes="divider-h" />
-
-                <!-- ===== 内容区 ===== -->
-                <Grid Grid.Row="2">
-                    <!-- 状态 A：空搜索 → 应用网格 -->
-                    <ScrollViewer IsVisible="{Binding IsSearchEmpty}"
-                                  VerticalScrollBarVisibility="Auto"
-                                  Padding="16,14,16,10">
-                        <StackPanel Spacing="18">
-                            <!-- 区块 1：固定应用 / 快捷工具 -->
-                            <StackPanel Spacing="6">
-                                <TextBlock Classes="section"
-                                           Text="{loc:Loc Launcher_PinnedApps}"
-                                           Margin="8,0,0,0" />
-                                <ItemsControl ItemsSource="{Binding PinnedTools}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel Orientation="Horizontal" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
+    <!-- Shadow fits inside the transparent client margin, including at 200% scale. -->
+    <Border Margin="18" CornerRadius="{Binding PanelCornerRadius}" BoxShadow="0 5 14 -3 #50000000">
+        <Border Name="LauncherPanel" CornerRadius="{Binding PanelCornerRadius}" ClipToBounds="True"
+                BorderBrush="{DynamicResource Pk.LauncherStroke}" BorderThickness="1">
+            <Panel>
+                <!-- No compositor blur: this underlay prevents background text bleeding through.
+                     This is a readability fallback, NOT a blur simulation. -->
+                <Border Name="ReadabilityShield" Background="{DynamicResource Pk.LauncherShield}" CornerRadius="{Binding PanelCornerRadius}" />
+                <Border Background="{DynamicResource Pk.LauncherSurface}" CornerRadius="{Binding PanelCornerRadius}" />
+                <Border Classes="sheen" CornerRadius="{Binding PanelCornerRadius}" />
+                <Grid RowDefinitions="60,1,*,34">
+                    <Border Name="TopDragArea" Padding="20,0,14,0" Background="Transparent">
+                        <Grid ColumnDefinitions="20,*,32">
+                            <Path Data="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35"
+                                  Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource Pk.TextSecondary}"
+                                  StrokeThickness="1.6" StrokeLineCap="Round" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" Name="SearchInput" Classes="pane-search" Margin="12,0,8,0"
+                                     Text="{Binding SearchQuery, Mode=TwoWay}" Watermark="{loc:Loc Launcher_SearchPlaceholder}"
+                                     FontSize="18" VerticalAlignment="Center" AutomationProperties.Name="搜索应用、文件或操作" />
+                            <Button Grid.Column="2" Classes="icon-btn" Command="{Binding OpenSettingsCommand}"
+                                    ToolTip.Tip="设置 · Alt+," AutomationProperties.Name="设置" VerticalAlignment="Center">
+                                <Path Data="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
+                                      Width="17" Height="17" Stretch="Uniform" StrokeThickness="1.6" StrokeLineCap="Round" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                    <Border Grid.Row="1" Classes="divider-h" />
+                    <Grid Grid.Row="2">
+                        <ScrollViewer IsVisible="{Binding IsSearchEmpty}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="14,12,14,8">
+                            <StackPanel Spacing="14">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Classes="section" Text="{loc:Loc Launcher_RecentApps}" Margin="6,0" />
+                                    <ItemsControl Name="RecentItems" ItemsSource="{Binding RecentApps}" ItemTemplate="{StaticResource AppTileTemplate}">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                    <TextBlock IsVisible="{Binding !RecentApps.Count}" Text="搜索并打开应用后，会在这里显示" FontSize="12" Foreground="{DynamicResource Pk.LauncherMuted}" Margin="6,16" />
+                                </StackPanel>
+                                <StackPanel Spacing="3" IsVisible="{Binding PinnedTools.Count}">
+                                    <TextBlock Classes="section" Text="{loc:Loc Launcher_PinnedApps}" Margin="6,0" />
+                                    <ItemsControl Name="PinnedItems" ItemsSource="{Binding PinnedTools}" ItemTemplate="{StaticResource AppTileTemplate}">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                        <Grid IsVisible="{Binding !IsSearchEmpty}" RowDefinitions="Auto,*">
+                            <StackPanel Margin="14,10,14,5" Spacing="4">
+                                <TextBlock Classes="section" Text="{Binding QuickActionTitle}" Margin="6,0" TextTrimming="CharacterEllipsis" />
+                                <ItemsControl ItemsSource="{Binding QuickActions}">
+                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:AppTileItem">
-                                            <Button Classes="tile-btn"
-                                                    Command="{Binding LaunchCommand}"
-                                                    Width="94" Height="94"
-                                                    Margin="0,2"
-                                                    ToolTip.Tip="{Binding Subtitle}">
-                                                <Button.ContextMenu>
-                                                    <ContextMenu>
-                                                        <MenuItem Header="打开" Command="{Binding ExecuteCommand}" />
-                                                        <MenuItem Header="{Binding PinMenuHeader}" Command="{Binding TogglePinCommand}" />
-                                                        <MenuItem Header="打开文件所在位置" Command="{Binding OpenLocationCommand}" IsVisible="{Binding CanOpenLocation}" />
-                                                        <MenuItem Header="以管理员身份运行" Command="{Binding RunAsAdminCommand}" IsVisible="{Binding CanRunAsAdmin}" />
-                                                    </ContextMenu>
-                                                </Button.ContextMenu>
-                                                <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <Panel Width="44" Height="44" HorizontalAlignment="Center">
-                                                        <!-- 真实应用图标：无底座，直接呈现 -->
-                                                        <Image Source="{Binding IconBitmap}"
-                                                               IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                                               Width="42" Height="42"
-                                                               RenderOptions.BitmapInterpolationMode="HighQuality" />
-                                                        <!-- 内置工具图标：柔和色调底座 + 品牌色线性图标 -->
-                                                        <Border Width="44" Height="44"
-                                                                CornerRadius="12"
-                                                                Background="{DynamicResource Pk.SurfaceRaised}"
-                                                                BorderBrush="{DynamicResource Pk.Stroke}"
-                                                                BorderThickness="1"
-                                                                IsVisible="{Binding ShowIconPath}">
-                                                            <Path Data="{Binding IconGeometry}"
-                                                                  Width="20" Height="20"
-                                                                  Stretch="Uniform"
-                                                                  Stroke="{DynamicResource Pk.Accent}"
-                                                                  StrokeThickness="1.75"
-                                                                  StrokeJoin="Round"
-                                                                  StrokeLineCap="Round"
-                                                                  HorizontalAlignment="Center"
-                                                                  VerticalAlignment="Center" />
-                                                        </Border>
-                                                        <!-- 无图标：彩色字母底座 -->
-                                                        <Border Classes="icon-badge"
-                                                                CornerRadius="12"
-                                                                Background="{Binding BadgeColor}"
-                                                                IsVisible="{Binding ShowGlyph}">
-                                                            <TextBlock Text="{Binding Glyph}"
-                                                                       FontSize="19"
-                                                                       FontWeight="SemiBold"
-                                                                       Foreground="#FFFFFF"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center" />
-                                                        </Border>
-                                                    </Panel>
-                                                    <TextBlock Text="{Binding Name}"
-                                                               FontSize="11.5"
-                                                               Foreground="{DynamicResource Pk.TextSecondary}"
-                                                               TextAlignment="Center"
-                                                               MaxLines="1"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               Width="84" />
+                                        <DataTemplate x:DataType="vm:QuickActionTile">
+                                            <Button Classes="quick-action" Command="{Binding ExecuteCommand}">
+                                                <StackPanel Spacing="5">
+                                                    <Border Classes="icon-case" Width="32" Height="32" HorizontalAlignment="Center"><Path Data="{Binding IconGeometry}" /></Border>
+                                                    <TextBlock Text="{Binding Title}" FontSize="11" Foreground="{DynamicResource Pk.TextSecondary}" TextAlignment="Center" />
                                                 </StackPanel>
                                             </Button>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-
-                            <!-- 区块 2：最近使用应用 -->
-                            <StackPanel Spacing="6">
-                                <TextBlock Classes="section"
-                                           Text="{loc:Loc Launcher_RecentApps}"
-                                           Margin="8,0,0,0" />
-                                <ItemsControl ItemsSource="{Binding RecentApps}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel Orientation="Horizontal" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:AppTileItem">
-                                            <Button Classes="tile-btn"
-                                                    Command="{Binding LaunchCommand}"
-                                                    Width="94" Height="94"
-                                                    Margin="0,2"
-                                                    ToolTip.Tip="{Binding Subtitle}">
-                                                <Button.ContextMenu>
+                            <ListBox Grid.Row="1" Name="ResultListBox" ItemContainerTheme="{StaticResource LauncherResultTheme}" Background="Transparent" BorderThickness="0" Padding="8,0,8,8"
+                                     ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                                     SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:LauncherListItem">
+                                        <StackPanel>
+                                            <TextBlock IsVisible="{Binding IsFirstInGroup}" Classes="section" Text="{Binding GroupDisplayName}" Margin="12,8,0,4" />
+                                            <Border Classes="result-row" Height="50">
+                                                <Border.ContextMenu>
                                                     <ContextMenu>
-                                                        <MenuItem Header="打开" Command="{Binding ExecuteCommand}" />
-                                                        <MenuItem Header="{Binding PinMenuHeader}" Command="{Binding TogglePinCommand}" />
-                                                        <MenuItem Header="打开文件所在位置" Command="{Binding OpenLocationCommand}" IsVisible="{Binding CanOpenLocation}" />
-                                                        <MenuItem Header="以管理员身份运行" Command="{Binding RunAsAdminCommand}" IsVisible="{Binding CanRunAsAdmin}" />
+                                                        <MenuItem Header="打开 / 执行" Command="{Binding ExecuteCommand}" />
+                                                        <MenuItem Header="{Binding PinMenuHeader}" Command="{Binding TogglePinCommand}" IsVisible="{Binding CanPin}" />
+                                                        <MenuItem Header="打开所在目录 (Ctrl+Enter)" Command="{Binding OpenLocationCommand}" IsVisible="{Binding CanOpenLocation}" />
+                                                        <MenuItem Header="复制路径 / 内容" Command="{Binding CopyPathCommand}" />
+                                                        <MenuItem Header="在终端中打开" Command="{Binding OpenInTerminalCommand}" IsVisible="{Binding CanOpenInTerminal}" />
+                                                        <MenuItem Header="以管理员权限运行" Command="{Binding RunAsAdminCommand}" IsVisible="{Binding CanRunAsAdmin}" />
                                                     </ContextMenu>
-                                                </Button.ContextMenu>
-                                                <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <Panel Width="44" Height="44" HorizontalAlignment="Center">
-                                                        <!-- 真实应用图标：无底座，直接呈现 -->
-                                                        <Image Source="{Binding IconBitmap}"
-                                                               IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                                               Width="42" Height="42"
-                                                               RenderOptions.BitmapInterpolationMode="HighQuality" />
-                                                        <!-- 内置工具图标：柔和色调底座 + 品牌色线性图标 -->
-                                                        <Border Width="44" Height="44"
-                                                                CornerRadius="12"
-                                                                Background="{DynamicResource Pk.SurfaceRaised}"
-                                                                BorderBrush="{DynamicResource Pk.Stroke}"
-                                                                BorderThickness="1"
-                                                                IsVisible="{Binding ShowIconPath}">
-                                                            <Path Data="{Binding IconGeometry}"
-                                                                  Width="20" Height="20"
-                                                                  Stretch="Uniform"
-                                                                  Stroke="{DynamicResource Pk.Accent}"
-                                                                  StrokeThickness="1.75"
-                                                                  StrokeJoin="Round"
-                                                                  StrokeLineCap="Round"
-                                                                  HorizontalAlignment="Center"
-                                                                  VerticalAlignment="Center" />
-                                                        </Border>
-                                                        <!-- 无图标：彩色字母底座 -->
-                                                        <Border Classes="icon-badge"
-                                                                CornerRadius="12"
-                                                                Background="{Binding BadgeColor}"
-                                                                IsVisible="{Binding ShowGlyph}">
-                                                            <TextBlock Text="{Binding Glyph}"
-                                                                       FontSize="19"
-                                                                       FontWeight="SemiBold"
-                                                                       Foreground="#FFFFFF"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center" />
-                                                        </Border>
+                                                </Border.ContextMenu>
+                                                <Grid ColumnDefinitions="3,46,*,Auto,42,22" Margin="4,0,8,0">
+                                                    <Border Classes="sel-bar" Width="2" Height="18" CornerRadius="1" Background="{DynamicResource Pk.Accent}" />
+                                                    <Panel Grid.Column="1" Width="28" Height="28" VerticalAlignment="Center">
+                                                        <Image Source="{Binding IconBitmap}" IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                                        <Border Classes="icon-case" IsVisible="{Binding ShowIconPath}"><Path Data="{Binding IconGeometry}" Width="15" Height="15" /></Border>
+                                                        <Border Classes="icon-case" IsVisible="{Binding ShowGlyph}"><Path Data="M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z" Width="15" Height="15" /></Border>
                                                     </Panel>
-                                                    <TextBlock Text="{Binding Name}"
-                                                               FontSize="11.5"
-                                                               Foreground="{DynamicResource Pk.TextSecondary}"
-                                                               TextAlignment="Center"
-                                                               MaxLines="1"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               Width="84" />
-                                                </StackPanel>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </StackPanel>
-                    </ScrollViewer>
-
-                    <!-- 状态 B：有输入 → 快捷动作 + 结果列表 -->
-                    <Grid IsVisible="{Binding !IsSearchEmpty}"
-                          RowDefinitions="Auto,*">
-                        <!-- 快捷动作芯片 -->
-                        <StackPanel Grid.Row="0" Spacing="8" Margin="18,12,18,6">
-                            <TextBlock Classes="section"
-                                       Text="{Binding QuickActionTitle}"
-                                       Margin="2,0,0,0" />
-                            <ItemsControl ItemsSource="{Binding QuickActions}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:QuickActionTile">
-                                        <Button Classes="chip"
-                                                Command="{Binding ExecuteCommand}"
-                                                Margin="0,0,6,6">
-                                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <Path Data="{Binding IconGeometry}"
-                                                      Width="13" Height="13"
-                                                      Stretch="Uniform"
-                                                      Stroke="{DynamicResource Pk.Accent}"
-                                                      StrokeThickness="1.9"
-                                                      StrokeJoin="Round"
-                                                      StrokeLineCap="Round"
-                                                      VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding Title}"
-                                                           FontSize="12"
-                                                           FontWeight="Medium"
-                                                           VerticalAlignment="Center" />
-                                            </StackPanel>
-                                        </Button>
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="1" Margin="0,0,8,0">
+                                                        <TextBlock Text="{Binding Title}" FontSize="13" Foreground="{DynamicResource Pk.Text}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
+                                                        <TextBlock Text="{Binding Subtitle}" FontSize="10.5" Foreground="{DynamicResource Pk.LauncherMuted}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Subtitle}" IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="3" Text="{Binding Tag}" FontSize="10" Foreground="{DynamicResource Pk.LauncherMuted}" VerticalAlignment="Center" Margin="4,0,8,0" />
+                                                    <TextBlock Grid.Column="4" Text="{Binding HotkeyText}" FontSize="10" Foreground="{DynamicResource Pk.LauncherMuted}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                                    <Path Grid.Column="5" Classes="enter-hint" Data="M9 10l-5 5 5 5 M20 4v7a4 4 0 0 1-4 4H4" Width="12" Height="12" Stretch="Uniform" Stroke="{DynamicResource Pk.AccentText}" StrokeThickness="1.6" StrokeLineCap="Round" />
+                                                </Grid>
+                                            </Border>
+                                        </StackPanel>
                                     </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-
-                        <!-- 结果列表 -->
-                        <ListBox Grid.Row="1"
-                                 Name="ResultListBox"
-                                 Classes="pk-list"
-                                 Padding="10,0,10,8"
-                                 ItemsSource="{Binding SearchResults}"
-                                 SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                                 SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                            <ListBox.Styles>
-                                <Style Selector="ListBoxItem">
-                                    <Setter Property="Padding" Value="0" />
-                                </Style>
-                            </ListBox.Styles>
-                            <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:LauncherListItem">
-                                    <StackPanel Background="Transparent">
-                                        <!-- 分组标题（每组首项） -->
-                                        <TextBlock IsVisible="{Binding IsFirstInGroup}"
-                                                   Classes="section"
-                                                   Text="{Binding GroupDisplayName}"
-                                                   Margin="10,10,0,6" />
-
-                                        <Grid ColumnDefinitions="3,Auto,*,Auto,Auto,Auto"
-                                              Height="48"
-                                              Background="Transparent">
-                                            <Grid.ContextMenu>
-                                                <ContextMenu>
-                                                    <MenuItem Header="打开 / 执行"
-                                                              Command="{Binding ExecuteCommand}" />
-                                                    <MenuItem Header="{Binding PinMenuHeader}"
-                                                              Command="{Binding TogglePinCommand}"
-                                                              IsVisible="{Binding CanPin}" />
-                                                    <MenuItem Header="打开所在目录 (Ctrl+Enter)"
-                                                              Command="{Binding OpenLocationCommand}"
-                                                              IsVisible="{Binding CanOpenLocation}" />
-                                                    <MenuItem Header="复制路径 / 内容"
-                                                              Command="{Binding CopyPathCommand}" />
-                                                    <MenuItem Header="在终端中打开"
-                                                              Command="{Binding OpenInTerminalCommand}"
-                                                              IsVisible="{Binding CanOpenInTerminal}" />
-                                                    <MenuItem Header="以管理员权限运行"
-                                                              Command="{Binding RunAsAdminCommand}"
-                                                              IsVisible="{Binding CanRunAsAdmin}" />
-                                                </ContextMenu>
-                                            </Grid.ContextMenu>
-
-                                            <!-- 选中指示条 -->
-                                            <Border Grid.Column="0"
-                                                    Classes="sel-bar"
-                                                    Width="3" Height="20"
-                                                    CornerRadius="2"
-                                                    Background="{DynamicResource Pk.Accent}"
-                                                    VerticalAlignment="Center" />
-
-                                            <!-- 图标 -->
-                                            <Panel Grid.Column="1"
-                                                   Width="32" Height="32"
-                                                   Margin="9,0,12,0"
-                                                   VerticalAlignment="Center">
-                                                <Image Source="{Binding IconBitmap}"
-                                                       IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                                       Width="28" Height="28"
-                                                       RenderOptions.BitmapInterpolationMode="HighQuality" />
-                                                <Border Classes="icon-badge"
-                                                        Background="{Binding BadgeColor}"
-                                                        IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNull}}">
-                                                    <Panel>
-                                                        <Path Data="{Binding IconGeometry}"
-                                                              IsVisible="{Binding ShowIconPath}"
-                                                              Width="15" Height="15"
-                                                              Stretch="Uniform"
-                                                              Stroke="#FFFFFF"
-                                                              StrokeThickness="1.9"
-                                                              StrokeJoin="Round"
-                                                              StrokeLineCap="Round"
-                                                              HorizontalAlignment="Center"
-                                                              VerticalAlignment="Center" />
-                                                        <TextBlock Text="{Binding Glyph}"
-                                                                   IsVisible="{Binding ShowGlyph}"
-                                                                   FontSize="13"
-                                                                   FontWeight="SemiBold"
-                                                                   Foreground="#FFFFFF"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center" />
-                                                    </Panel>
-                                                </Border>
-                                            </Panel>
-
-                                            <!-- 标题 / 副标题 -->
-                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="1">
-                                                <TextBlock Classes="row-title"
-                                                           Text="{Binding Title}"
-                                                           FontSize="13.5"
-                                                           FontWeight="Medium"
-                                                           Foreground="{DynamicResource Pk.Text}"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Subtitle}"
-                                                           IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                           FontSize="11.5"
-                                                           Foreground="{DynamicResource Pk.TextTertiary}"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-
-                                            <!-- 分类标签：色点 + 文字 -->
-                                            <StackPanel Grid.Column="3"
-                                                        Orientation="Horizontal"
-                                                        Spacing="6"
-                                                        Margin="12,0,0,0"
-                                                        VerticalAlignment="Center">
-                                                <Ellipse Width="6" Height="6"
-                                                         Fill="{Binding TagColor}"
-                                                         VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding Tag}"
-                                                           FontSize="11"
-                                                           Foreground="{DynamicResource Pk.TextTertiary}"
-                                                           VerticalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Alt+N 快捷键 -->
-                                            <Border Grid.Column="4"
-                                                    Classes="keycap"
-                                                    Margin="10,0,0,0"
-                                                    IsVisible="{Binding HotkeyText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                                <TextBlock Classes="keycap-text" Text="{Binding HotkeyText}" />
-                                            </Border>
-
-                                            <!-- 选中时的回车提示 -->
-                                            <Border Grid.Column="5"
-                                                    Classes="enter-hint"
-                                                    Margin="8,0,12,0"
-                                                    VerticalAlignment="Center">
-                                                <Path Data="M9 10l-5 5 5 5 M20 4v7a4 4 0 0 1-4 4H4"
-                                                      Width="13" Height="13"
-                                                      Stretch="Uniform"
-                                                      Stroke="{DynamicResource Pk.AccentText}"
-                                                      StrokeThickness="2"
-                                                      StrokeJoin="Round"
-                                                      StrokeLineCap="Round" />
-                                            </Border>
-                                        </Grid>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
                     </Grid>
+                    <Border Grid.Row="3" BorderBrush="{DynamicResource Pk.Divider}" BorderThickness="0,1,0,0" Padding="18,0" Background="{DynamicResource Pk.SurfaceFooter}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                                <TextBlock Text="Pankin" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource Pk.TextSecondary}" VerticalAlignment="Center" />
+                                <TextBlock Classes="hint" Text="{Binding HotkeyDisplay}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="3"><Border Classes="keycap"><TextBlock Classes="keycap-text" Text="↑ ↓" /></Border><TextBlock Classes="hint" Text="选择" /></StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="3"><Border Classes="keycap"><TextBlock Classes="keycap-text" Text="↵" /></Border><TextBlock Classes="hint" Text="打开" /></StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="3"><Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Ctrl P" /></Border><TextBlock Classes="hint" Text="固定" /></StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="3"><Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Esc" /></Border><TextBlock Classes="hint" Text="隐藏" /></StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                 </Grid>
-
-                <!-- ===== 底部提示栏 ===== -->
-                <Border Grid.Row="3"
-                        Height="40"
-                        Background="{DynamicResource Pk.SurfaceFooter}"
-                        BorderBrush="{DynamicResource Pk.Divider}"
-                        BorderThickness="0,1,0,0"
-                        Padding="18,0">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
-                            <!-- 品牌标识 -->
-                            <Border Width="16" Height="16" CornerRadius="5" VerticalAlignment="Center">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                                        <GradientStop Offset="0" Color="#9B8CFF" />
-                                        <GradientStop Offset="1" Color="#5B6CFF" />
-                                    </LinearGradientBrush>
-                                </Border.Background>
-                                <TextBlock Text="P" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Text="Pankin" FontSize="11.5" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource Pk.TextSecondary}" VerticalAlignment="Center" />
-                            <Border Classes="divider-v" Height="12" Margin="2,0" />
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="{Binding HotkeyDisplay}" /></Border>
-                                <TextBlock Classes="hint" Text="唤醒" Margin="2,0,0,0" />
-                            </StackPanel>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="14">
-                            <StackPanel Orientation="Horizontal" Spacing="5">
-                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="↵" /></Border>
-                                <TextBlock Classes="hint" Text="打开" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="3">
-                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Ctrl" /></Border>
-                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="↵" /></Border>
-                                <TextBlock Classes="hint" Text="所在目录" Margin="2,0,0,0" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="3">
-                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Alt" /></Border>
-                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="," /></Border>
-                                <TextBlock Classes="hint" Text="设置" Margin="2,0,0,0" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="5">
-                                <Border Classes="keycap"><TextBlock Classes="keycap-text" Text="Esc" /></Border>
-                                <TextBlock Classes="hint" Text="隐藏" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Grid>
-                </Border>
-            </Grid>
-        </Panel>
+            </Panel>
+        </Border>
     </Border>
 </Window>

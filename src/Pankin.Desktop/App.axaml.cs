@@ -169,6 +169,11 @@ public partial class App : Application
         byte b = isLight ? (byte)252 : (byte)23;
         var surfaceBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromArgb(alpha, r, g, b));
         Current.Resources["Pk.Surface"] = surfaceBrush;
+        // Keep the saved opacity as the tint alpha. MainWindow adds a separate
+        // readability shield only when the backend does not report background blur.
+        Current.Resources["Pk.LauncherSurface"] = new Avalonia.Media.SolidColorBrush(
+            Avalonia.Media.Color.FromArgb(alpha, isLight ? (byte)245 : (byte)48,
+                isLight ? (byte)244 : (byte)49, isLight ? (byte)242 : (byte)53));
 
         // 3. Accent Color
         if (Avalonia.Media.Color.TryParse(general.AccentColor, out var accentColor))
@@ -191,10 +196,7 @@ public partial class App : Application
         }
 
         // 4. Panel Radius
-        if (general.PanelRadius > 0)
-        {
-            Current.Resources["Pk.Radius.Window"] = new CornerRadius(general.PanelRadius);
-        }
+        Current.Resources["Pk.Radius.Window"] = new CornerRadius(Math.Max(0, general.PanelRadius));
     }
 
     private async Task InitializeDesktopContextAsync()

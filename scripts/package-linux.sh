@@ -80,7 +80,7 @@ Section: utils
 Priority: optional
 Architecture: ${DEB_ARCH}
 Maintainer: Pankin Project <https://github.com/demgkp1/Pankin>
-Depends: libc6, libgcc-s1, libstdc++6, plocate, xclip, wl-clipboard, libnotify-bin
+Depends: libc6, libgcc-s1, libstdc++6, plocate, xclip, wl-clipboard, libnotify-bin, libgdk-pixbuf-2.0-0, librsvg2-common
 Description: Native modern desktop productivity platform for Linux
  Pankin is a native, modern desktop productivity platform for Ubuntu/Linux.
  Features lightning-fast launcher, clipboard history, selection super panel,

@@ -19,6 +19,11 @@
             <ResourceDictionary.ThemeDictionaries>
                 <!-- ============ 深色主题 ============ -->
                 <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="Pk.LauncherSurface" Color="#F0303135" />
+                    <SolidColorBrush x:Key="Pk.LauncherShield" Color="#E6404145" />
+                    <SolidColorBrush x:Key="Pk.LauncherStroke" Color="#32FFFFFF" />
+                    <SolidColorBrush x:Key="Pk.LauncherMuted" Color="#ACADB6" />
+                    <SolidColorBrush x:Key="Pk.LauncherKey" Color="#08FFFFFF" />
                     <!-- 表面层级 -->
                     <SolidColorBrush x:Key="Pk.Surface" Color="#F5141417" />
                     <SolidColorBrush x:Key="Pk.SurfaceSolid" Color="#17171B" />
@@ -60,6 +65,11 @@
 
                 <!-- ============ 浅色主题 ============ -->
                 <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="Pk.LauncherSurface" Color="#F0F5F4F2" />
+                    <SolidColorBrush x:Key="Pk.LauncherShield" Color="#E6E5E4E2" />
+                    <SolidColorBrush x:Key="Pk.LauncherStroke" Color="#25000000" />
+                    <SolidColorBrush x:Key="Pk.LauncherMuted" Color="#6E7079" />
+                    <SolidColorBrush x:Key="Pk.LauncherKey" Color="#05000000" />
                     <SolidColorBrush x:Key="Pk.Surface" Color="#F7FBFBFC" />
                     <SolidColorBrush x:Key="Pk.SurfaceSolid" Color="#FBFBFC" />
                     <SolidColorBrush x:Key="Pk.SurfaceSidebar" Color="#06000000" />
@@ -97,7 +107,7 @@
             <CornerRadius x:Key="Pk.Radius.Card">12</CornerRadius>
             <CornerRadius x:Key="Pk.Radius.Control">8</CornerRadius>
             <CornerRadius x:Key="Pk.Radius.Pill">999</CornerRadius>
-            <FontFamily x:Key="Pk.Font">Inter, Noto Sans CJK SC, Noto Sans SC, sans-serif</FontFamily>
+            <FontFamily x:Key="Pk.Font">avares://Avalonia.Fonts.Inter/Assets#Inter, Noto Sans CJK SC, Noto Sans SC, sans-serif</FontFamily>
         </ResourceDictionary>
     </Application.Resources>
 

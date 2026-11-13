@@ -59,6 +59,9 @@ public sealed record SelectionTriggeredEventArgs(
 /// </summary>
 public interface IAppScanner
 {
+    /// <summary>Resolve and decode a platform application icon to PNG, or null if unavailable.</summary>
+    byte[]? LoadIconPng(string iconName, int pixels = 96) => null;
+
     Task<IReadOnlyList<AppEntry>> ScanAppsAsync(CancellationToken ct = default);
     IReadOnlyList<AppEntry> SearchApps(string query, int maxResults = 20);
     Task<bool> LaunchAppAsync(AppEntry app, CancellationToken ct = default);

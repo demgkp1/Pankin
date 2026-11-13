@@ -7,7 +7,7 @@ namespace Pankin.Desktop.Services;
 
 public static class LinuxIconHelper
 {
-    private static readonly ConcurrentDictionary<string, Bitmap?> IconCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, Lazy<Bitmap?>> IconCache = new(StringComparer.Ordinal);
 
     private static readonly string[] GradientColors =
     [
@@ -24,7 +24,7 @@ public static class LinuxIconHelper
     public static string GetGradientColor(string name)
     {
         if (string.IsNullOrEmpty(name)) return GradientColors[0];
-        int hash = Math.Abs(name.GetHashCode());
+        int hash = name.GetHashCode() & int.MaxValue;
         return GradientColors[hash % GradientColors.Length];
     }
 
@@ -46,51 +46,23 @@ public static class LinuxIconHelper
     {
         if (string.IsNullOrWhiteSpace(iconName)) return null;
 
-        if (IconCache.TryGetValue(iconName, out var cached))
-        {
-            return cached;
-        }
-
-        Bitmap? loaded = LoadIconInternal(iconName);
-        IconCache[iconName] = loaded;
-        return loaded;
+        return IconCache.GetOrAdd(iconName, name => new Lazy<Bitmap?>(() => LoadIconInternal(name))).Value;
     }
 
     private static Bitmap? LoadIconInternal(string iconName)
     {
         try
         {
-            // 1. 若本身即为绝对路径
-            if (File.Exists(iconName))
-            {
-                return new Bitmap(iconName);
-            }
-
-            // 2. 候选系统图标目录
-            var candidatePaths = new[]
-            {
-                $"/usr/share/pixmaps/{iconName}.png",
-                $"/usr/share/pixmaps/{iconName}.xpm",
-                $"/usr/share/icons/hicolor/48x48/apps/{iconName}.png",
-                $"/usr/share/icons/hicolor/64x64/apps/{iconName}.png",
-                $"/usr/share/icons/hicolor/32x32/apps/{iconName}.png",
-                $"/usr/share/icons/hicolor/128x128/apps/{iconName}.png",
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), $".local/share/icons/hicolor/48x48/apps/{iconName}.png")
-            };
-
-            foreach (var path in candidatePaths)
-            {
-                if (File.Exists(path))
-                {
-                    return new Bitmap(path);
-                }
-            }
+            // Platform decoding includes XDG inheritance and SVG/PNG/XPM. Rasterize at
+            // 96 px so both the 36-DIP grid and the 28-DIP rows stay crisp at 200%.
+            var png = DesktopAppContext.Instance.AppScanner.LoadIconPng(iconName, 96);
+            if (png == null) return null;
+            using var stream = new MemoryStream(png, writable: false);
+            return new Bitmap(stream);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or ArgumentException)
         {
-            // 忽略格式不兼容或缺失情况
+            return null;
         }
-
-        return null;
     }
 }
