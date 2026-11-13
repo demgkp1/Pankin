@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Ubuntu-24.04%20LTS-E95420?style=flat-square&logo=ubuntu&logoColor=white" alt="Ubuntu 24.04" />
   <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=flat-square&logo=dotnet&logoColor=white" alt=".NET 8" />
   <img src="https://img.shields.io/badge/Avalonia%20UI-11.1.3-8B8DFF?style=flat-square" alt="Avalonia UI" />
-  <img src="https://img.shields.io/badge/Version-0.2.2-blue?style=flat-square" alt="Version 0.2.2" />
+  <img src="https://img.shields.io/badge/Version-0.3.0-blue?style=flat-square" alt="Version 0.3.0" />
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" />
 </p>
 
@@ -66,32 +66,34 @@
 
 ## 📦 Installation & Usage / 安装与运行
 
+当前源码版本为 **0.3.0**。安装包以 GitHub Releases 中实际上传的版本为准；以下 0.3.0 文件名也可按下文打包步骤在本地生成。
+
 ### 1. 系统依赖环境 (Prerequisites)
 
-Pankin 运行需要以下基础系统工具（用于文件检索、剪贴板交互与系统通知）：
+Pankin 运行需要以下基础系统工具与图标解码库（用于文件检索、剪贴板交互、系统通知及 SVG 图标加载）：
 
 ```bash
 sudo apt update
-sudo apt install -y plocate xclip wl-clipboard libnotify-bin
+sudo apt install -y plocate xclip wl-clipboard libnotify-bin libgdk-pixbuf-2.0-0 librsvg2-common
 ```
 
 ### 2. 方式 A：Debian 软件包安装 (.deb，推荐)
 
-下载最新的 `pankin_0.2.2_amd64.deb`：
+准备已发布或本地构建的 `pankin_0.3.0_amd64.deb`：
 
 ```bash
-sudo apt install ./pankin_0.2.2_amd64.deb
+sudo apt install ./pankin_0.3.0_amd64.deb
 ```
 
 安装后即可在应用菜单中找到 **Pankin**，或在终端输入 `pankin` 启动。
 
 ### 3. 方式 B：AppImage 免安装运行
 
-下载最新的 `Pankin-0.2.2-x86_64.AppImage`：
+准备已发布或本地构建的 `Pankin-0.3.0-x86_64.AppImage`：
 
 ```bash
-chmod +x Pankin-0.2.2-x86_64.AppImage
-./Pankin-0.2.2-x86_64.AppImage
+chmod +x Pankin-0.3.0-x86_64.AppImage
+./Pankin-0.3.0-x86_64.AppImage
 ```
 
 ---
@@ -139,8 +141,8 @@ bash scripts/package-linux.sh
 ```
 
 生成的安装包将存放在 `artifacts/` 目录下：
-* `artifacts/pankin_0.2.2_amd64.deb`
-* `artifacts/Pankin-0.2.2-x86_64.AppImage`
+* `artifacts/pankin_0.3.0_amd64.deb`
+* `artifacts/Pankin-0.3.0-x86_64.AppImage`
 * `artifacts/pankin.svg`
 
 ---

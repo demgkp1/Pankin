@@ -145,7 +145,7 @@
 
                         <!-- 底部版本信息 -->
                         <TextBlock Grid.Row="2"
-                                   Text="Pankin v0.2.1 (Ubuntu 24.04)"
+                                   Text="Pankin v0.3.0 (Ubuntu 24.04)"
                                    Classes="caption"
                                    HorizontalAlignment="Center"
                                    Margin="0,8,0,0" />
