@@ -575,6 +575,7 @@ public partial class SettingsViewModel : ViewModelBase
     }
 
     private bool _isLoadingSettings;
+    private bool _isUpdatingAutostart;
 
     private void LoadFromSettingsStore()
     {
@@ -590,7 +591,7 @@ public partial class SettingsViewModel : ViewModelBase
             PanelOpacity = settings.General.PanelOpacity;
             HideOnDeactivate = settings.General.HideOnDeactivate;
             RememberWindowPosition = settings.General.RememberWindowPosition;
-            StartAtLogin = settings.General.StartAtLogin;
+            StartAtLogin = _context.AutostartService.IsAutostartEnabled;
             ShowTrayIcon = settings.General.ShowTrayIcon;
             SelectedThemeColor = settings.General.AccentColor;
 
@@ -826,8 +827,16 @@ public partial class SettingsViewModel : ViewModelBase
 
     partial void OnStartAtLoginChanged(bool value)
     {
+        if (_isLoadingSettings || _isUpdatingAutostart) return;
         _context.AutostartService.SetAutostart(value);
-        SaveSetting(s => s with { General = s.General with { StartAtLogin = value } });
+        var enabled = _context.AutostartService.IsAutostartEnabled;
+        if (enabled != value)
+        {
+            _isUpdatingAutostart = true;
+            try { StartAtLogin = enabled; }
+            finally { _isUpdatingAutostart = false; }
+        }
+        SaveSetting(s => s with { General = s.General with { StartAtLogin = enabled } });
     }
 
     partial void OnShowTrayIconChanged(bool value)

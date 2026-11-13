@@ -98,7 +98,7 @@ public partial class MainWindow : Window
                 DesktopAppContext.Instance.SettingsStore.Current.General.HideOnDeactivate)
             {
                 SaveWindowPositionIfNeeded();
-                Hide();
+                PanelWindowBehavior.HideAfterDeactivation(this);
             }
         };
 

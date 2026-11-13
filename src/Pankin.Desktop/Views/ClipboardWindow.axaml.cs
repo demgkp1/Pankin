@@ -39,7 +39,7 @@ public partial class ClipboardWindow : Window
                 Environment.TickCount64 - _lastActivatedMs > 180 &&
                 DesktopAppContext.Instance.SettingsStore.Current.General.HideOnDeactivate)
             {
-                Hide();
+                PanelWindowBehavior.HideAfterDeactivation(this);
             }
         };
 

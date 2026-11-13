@@ -9,7 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-VERSION="0.3.0"
+VERSION="0.3.1"
 APP_NAME="pankin"
 APP_DISPLAY_NAME="Pankin"
 DEB_ARCH="amd64"
@@ -154,6 +154,13 @@ EOF
 
 cp "${APPDIR}/pankin.desktop" "${APPDIR}/usr/share/applications/pankin.desktop"
 cp "${ICON_FILE}" "${APPDIR}/pankin.svg"
+# Recent appimagetool versions do not auto-create .DirIcon from an SVG.
+if command -v gdk-pixbuf-thumbnailer &>/dev/null; then
+  gdk-pixbuf-thumbnailer -s 256 "${ICON_FILE}" "${APPDIR}/pankin.png"
+  ln -s pankin.png "${APPDIR}/.DirIcon"
+else
+  ln -s pankin.svg "${APPDIR}/.DirIcon"
+fi
 cp "${ICON_FILE}" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/pankin.svg"
 cp "${ICON_FILE}" "${APPDIR}/usr/share/pixmaps/pankin.svg"
 
@@ -178,12 +185,30 @@ else
 fi
 
 echo "==> Building ${APPIMAGE_FILE} with appimagetool..."
-ARCH=x86_64 "${APPIMAGETOOL}" --appimage-extract-and-run "${APPDIR}" "${APPIMAGE_FILE}"
+# Prefer a cached runtime so rebuilding does not depend on a GitHub download.
+RUNTIME_ARGS=()
+if [ -n "${APPIMAGE_RUNTIME_FILE:-}" ]; then
+  if [ ! -f "${APPIMAGE_RUNTIME_FILE}" ]; then
+    echo "ERROR: APPIMAGE_RUNTIME_FILE does not exist: ${APPIMAGE_RUNTIME_FILE}" >&2
+    exit 1
+  fi
+  RUNTIME_ARGS=(--runtime-file "${APPIMAGE_RUNTIME_FILE}")
+elif [ -f "${TOOLS_DIR}/runtime-x86_64" ]; then
+  RUNTIME_ARGS=(--runtime-file "${TOOLS_DIR}/runtime-x86_64")
+fi
+ARCH=x86_64 "${APPIMAGETOOL}" --appimage-extract-and-run "${RUNTIME_ARGS[@]}" "${APPDIR}" "${APPIMAGE_FILE}"
 rm -rf "${APPDIR}"
+
+# Versioned basenames keep the manifest portable and compatible with UpdateService.
+CHECKSUMS_FILE="${ARTIFACTS_DIR}/SHA256SUMS.txt"
+(
+  cd "${ARTIFACTS_DIR}"
+  sha256sum "$(basename "${APPIMAGE_FILE}")" "$(basename "${DEB_FILE}")"
+) > "${CHECKSUMS_FILE}"
 
 echo ""
 echo "========================================================"
 echo " Packaging Success!"
 echo " Artifacts:"
-ls -lh "${DEB_FILE}" "${APPIMAGE_FILE}" "${ICON_FILE}"
+ls -lh "${DEB_FILE}" "${APPIMAGE_FILE}" "${CHECKSUMS_FILE}" "${ICON_FILE}"
 echo "========================================================"

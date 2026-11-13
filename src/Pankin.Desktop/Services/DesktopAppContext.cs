@@ -67,6 +67,8 @@ public sealed class DesktopAppContext : IDisposable
         AiService = new AiService(MapAiConfig(currentSettings.Ai));
         TranslationService = new TranslationService(AiService);
         AutostartService = new LinuxAutostartService();
+        // Refresh old entries (including AppImage paths after an update/move) on manual startup.
+        if (currentSettings.General.StartAtLogin) AutostartService.SetAutostart(true);
         InputHook = new LinuxInputHook(ClipboardService);
 
         var resolvedLang = Pankin.Core.Localization.UiLanguageResolver.Resolve(
@@ -84,7 +86,7 @@ public sealed class DesktopAppContext : IDisposable
         SetupWizardService = new SetupWizardService();
 
         UpdateService = new UpdateService(
-            currentVersion: "0.3.0",
+            currentVersion: "0.3.1",
             automatic: () => SettingsStore.Current.Update.AutoUpdate,
             openReleaseUrlOrInstall: url => _ = ActionHost.OpenAsync(url));
 

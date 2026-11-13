@@ -29,6 +29,7 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args.Length == 1 && args[0] == "--runtime-regressions") return RuntimeRegressionVerification.Run();
         _output = Path.GetFullPath(args.FirstOrDefault() ?? "artifacts/launcher-verification");
         Directory.CreateDirectory(_output);
         var isolation = Path.Combine(Path.GetTempPath(), "pankin-verify-" + Guid.NewGuid().ToString("N"));

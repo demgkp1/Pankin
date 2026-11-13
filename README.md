@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/Ubuntu-24.04%20LTS-E95420?style=flat-square&logo=ubuntu&logoColor=white" alt="Ubuntu 24.04" />
   <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=flat-square&logo=dotnet&logoColor=white" alt=".NET 8" />
   <img src="https://img.shields.io/badge/Avalonia%20UI-11.1.3-8B8DFF?style=flat-square" alt="Avalonia UI" />
-  <img src="https://img.shields.io/badge/Version-0.3.0-blue?style=flat-square" alt="Version 0.3.0" />
+  <img src="https://img.shields.io/badge/Version-0.3.1-blue?style=flat-square" alt="Version 0.3.1" />
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" />
 </p>
 
@@ -66,11 +66,11 @@
 
 ## 📦 Installation & Usage / 安装与运行
 
-当前源码版本为 **0.3.0**。安装包以 GitHub Releases 中实际上传的版本为准；以下 0.3.0 文件名也可按下文打包步骤在本地生成。
+当前源码版本为 **0.3.1**。安装包以 GitHub Releases 中实际上传的版本为准；以下 0.3.1 文件名也可按下文打包步骤在本地生成。
 
 ### 1. 系统依赖环境 (Prerequisites)
 
-Pankin 运行需要以下基础系统工具与图标解码库（用于文件检索、剪贴板交互、系统通知及 SVG 图标加载）：
+以下工具与图标库用于完整功能（文件检索、Primary Selection 划词、命令行剪贴板后端、系统通知及 SVG 图标加载）。桌面端的文本剪贴板历史使用 Avalonia 原生剪贴板，不再要求安装 `xclip` 或 `wl-clipboard`：
 
 ```bash
 sudo apt update
@@ -79,22 +79,28 @@ sudo apt install -y plocate xclip wl-clipboard libnotify-bin libgdk-pixbuf-2.0-0
 
 ### 2. 方式 A：Debian 软件包安装 (.deb，推荐)
 
-准备已发布或本地构建的 `pankin_0.3.0_amd64.deb`：
+准备已发布或本地构建的 `pankin_0.3.1_amd64.deb`：
 
 ```bash
-sudo apt install ./pankin_0.3.0_amd64.deb
+sudo apt install ./pankin_0.3.1_amd64.deb
 ```
 
 安装后即可在应用菜单中找到 **Pankin**，或在终端输入 `pankin` 启动。
 
 ### 3. 方式 B：AppImage 免安装运行
 
-准备已发布或本地构建的 `Pankin-0.3.0-x86_64.AppImage`：
+准备已发布或本地构建的 `Pankin-0.3.1-x86_64.AppImage`：
 
 ```bash
-chmod +x Pankin-0.3.0-x86_64.AppImage
-./Pankin-0.3.0-x86_64.AppImage
+chmod +x Pankin-0.3.1-x86_64.AppImage
+./Pankin-0.3.1-x86_64.AppImage
 ```
+
+- 建议将 AppImage 放在固定目录，例如 `~/app/` 或 `~/Applications/`。启动器同时扫描这些目录以及 `~/AppImages/`、下载目录、`~/.local/bin/`，可搜索没有 `.desktop` 文件的可执行 AppImage。
+- 首次运行新版时，已启用的自启动条目会自动重写为当前 AppImage 的持久路径。自启动使用 `--autostart`，登录后仅后台常驻，不自动弹出面板。移动文件后需要手动从新位置启动一次，以更新自启动路径。
+- 剪贴板历史会记录启动时已有的文本和之后的新复制；历史监听不能补回此前从未记录的内容。
+
+运行时修复与回归验证说明见 [Linux 运行时回归验证](docs/linux-runtime-regressions.md)。
 
 ---
 
@@ -119,14 +125,14 @@ Pankin.sln
 
 ```bash
 # 1. 克隆代码库
-git clone https://github.com/Pankin/Pankin.git
+git clone https://github.com/demgkp1/Pankin.git
 cd Pankin
 
 # 2. 构建整套解决方案 (0 Warning, 0 Error)
 dotnet build Pankin.sln
 
 # 3. 运行全量单元测试
-dotnet test tests/Pankin.Core.Tests
+dotnet test Pankin.sln
 
 # 4. 本地启动桌面应用
 dotnet run --project src/Pankin.Desktop
@@ -141,9 +147,16 @@ bash scripts/package-linux.sh
 ```
 
 生成的安装包将存放在 `artifacts/` 目录下：
-* `artifacts/pankin_0.3.0_amd64.deb`
-* `artifacts/Pankin-0.3.0-x86_64.AppImage`
+* `artifacts/pankin_0.3.1_amd64.deb`
+* `artifacts/Pankin-0.3.1-x86_64.AppImage`
+* `artifacts/SHA256SUMS.txt`（AppImage/deb 校验文件，发布时一并上传）
 * `artifacts/pankin.svg`
+
+### 推送 GitHub 与发布 0.3.1
+
+代码推送不会自动上传安装包。请先提交改动并推送 `main` 和 `v0.3.1` 标签，再在 GitHub 新建正式 Release，上传上述两个安装包及 `SHA256SUMS.txt`，并设置为 Latest；保留旧的 `v0.3.0` Release。
+
+详细操作见 [GitHub 发布指南](docs/github-release.md)，本次可直接使用的发布说明见 [0.3.1 发布说明](docs/releases/v0.3.1.md)。
 
 ---
 

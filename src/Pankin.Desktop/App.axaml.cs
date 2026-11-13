@@ -12,6 +12,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Pankin.Core.Abstractions;
+using Pankin.Platform.Linux;
 using Pankin.Desktop.Services;
 using Pankin.Desktop.ViewModels;
 using Pankin.Desktop.Views;
@@ -78,7 +79,27 @@ public partial class App : Application
                 Icon = appIcon
             };
 
-            desktop.MainWindow = _mainWindow;
+            var isAutostart = desktop.Args?.Length == 1 && desktop.Args[0] == "--autostart";
+            // The lifetime automatically shows MainWindow. Leave it unset for a tray-only login.
+            if (!isAutostart) desktop.MainWindow = _mainWindow;
+
+            if (DesktopAppContext.Instance.ClipboardService is LinuxClipboardService clipboard)
+            {
+                clipboard.ConfigureDesktopClipboard(
+                    async ct =>
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        return await Dispatcher.UIThread.InvokeAsync(() =>
+                            _mainWindow.Clipboard?.GetTextAsync() ?? Task.FromResult<string?>(null));
+                    },
+                    async (text, ct) =>
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                            (_mainWindow.Clipboard ?? throw new InvalidOperationException("Native clipboard is unavailable"))
+                                .SetTextAsync(text));
+                    });
+            }
 
             // 应用全局外观设置
             ApplyAppearance(DesktopAppContext.Instance.SettingsStore.Current.General);
@@ -139,10 +160,13 @@ public partial class App : Application
             }
 
             ApplySavedMainWindowPosition();
-            _mainWindow.Show();
-            _mainWindow.Activate();
-            _mainWindow.FocusSearchInput();
-            _mainWindowShownMs = Environment.TickCount64;
+            if (!isAutostart)
+            {
+                _mainWindow.Show();
+                _mainWindow.Activate();
+                _mainWindow.FocusSearchInput();
+                _mainWindowShownMs = Environment.TickCount64;
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -418,7 +442,8 @@ public partial class App : Application
 
         hook.GlobalPointerPressed += (_, pt) =>
         {
-            if (!DesktopAppContext.Instance.SettingsStore.Current.General.HideOnDeactivate) return;
+            if (!DesktopAppContext.Instance.SettingsStore.Current.General.HideOnDeactivate ||
+                !PanelWindowBehavior.CanUseGlobalPointerCoordinates) return;
 
             Dispatcher.UIThread.Post(() =>
             {
@@ -428,11 +453,7 @@ public partial class App : Application
                 {
                     if (win != null && win.IsVisible && (now - shownMs > 250))
                     {
-                        var pos = win.Position;
-                        var bounds = win.Bounds;
-                        bool inside = pt.X >= pos.X && pt.X <= pos.X + bounds.Width &&
-                                      pt.Y >= pos.Y && pt.Y <= pos.Y + bounds.Height;
-                        if (!inside)
+                        if (!PanelWindowBehavior.ContainsScreenPoint(win, pt.X, pt.Y) && !win.IsPointerOver)
                         {
                             win.Hide();
                         }
@@ -442,7 +463,7 @@ public partial class App : Application
                 CheckAndHide(_mainWindow, _mainWindowShownMs);
                 CheckAndHide(_clipboardWindow, _clipboardWindowShownMs);
                 CheckAndHide(_superPanelWindow, _superPanelWindowShownMs);
-            });
+            }, DispatcherPriority.Background);
         };
 
         hook.SelectionTriggered += (_, e) =>
@@ -460,8 +481,8 @@ public partial class App : Application
                 {
                     if (win != null && win.IsVisible)
                     {
-                        if (win.Position.X <= e.MouseX && e.MouseX <= win.Position.X + win.Bounds.Width &&
-                            win.Position.Y <= e.MouseY && e.MouseY <= win.Position.Y + win.Bounds.Height)
+                        if (PanelWindowBehavior.CanUseGlobalPointerCoordinates &&
+                            PanelWindowBehavior.ContainsScreenPoint(win, e.MouseX, e.MouseY))
                         {
                             return;
                         }

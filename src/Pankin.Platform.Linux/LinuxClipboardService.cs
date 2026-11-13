@@ -7,14 +7,17 @@ namespace Pankin.Platform.Linux;
 
 /// <summary>
 /// 兼容 Ubuntu 24.04 Wayland / XWayland / X11 的剪贴板与划词服务实现。
-/// 注意：在 GNOME Wayland (Ubuntu 默认桌面) 下，wl-paste 因为缺乏 wlr-data-control 协议支持，
-/// 每次调用都会创建一个临时顶层窗口以获取焦点，如果在后台轮询会导致 Ubuntu Dock 栏不断有应用图标闪现又消失！
-/// 因此当存在 DISPLAY (X11 / XWayland) 时，优先使用静默无窗口的 xclip，彻底消除 Dock 图标闪烁。
+/// 桌面端可注入原生剪贴板访问，无需 xclip/wl-clipboard 外部依赖。
+/// 后台不使用 wl-paste 抢焦点的 GNOME 回退；独立调用仍可使用命令行后端。
 /// </summary>
 public sealed class LinuxClipboardService : IClipboardService
 {
     private readonly bool _hasX11Display;
     private readonly bool _hasWaylandDisplay;
+    private readonly bool _isGnomeWayland;
+    private Func<CancellationToken, Task<string?>>? _desktopTextReader;
+    private Func<string, CancellationToken, Task>? _desktopTextWriter;
+    private readonly SemaphoreSlim _nativeClipboardAccess = new(1, 1);
     private readonly object _monitorLock = new();
     private CancellationTokenSource? _monitorCts;
     private Task? _monitorTask;
@@ -30,10 +33,40 @@ public sealed class LinuxClipboardService : IClipboardService
     {
         _hasX11Display = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DISPLAY"));
         _hasWaylandDisplay = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"));
+        var desktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "";
+        _isGnomeWayland = _hasWaylandDisplay && (desktop.Contains("GNOME", StringComparison.OrdinalIgnoreCase) ||
+            desktop.Contains("ubuntu", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(Environment.GetEnvironmentVariable("XDG_SESSION_DESKTOP"), "ubuntu", StringComparison.OrdinalIgnoreCase));
+    }
+
+    public void ConfigureDesktopClipboard(
+        Func<CancellationToken, Task<string?>> textReader,
+        Func<string, CancellationToken, Task> textWriter)
+    {
+        ArgumentNullException.ThrowIfNull(textReader);
+        ArgumentNullException.ThrowIfNull(textWriter);
+        _desktopTextReader = textReader;
+        _desktopTextWriter = textWriter;
+    }
+
+    private async Task<string?> ReadNativeTextAsync(CancellationToken ct)
+    {
+        // Avalonia's X11 clipboard shares asynchronous selection-request state.
+        // Serialize polling, explicit reads and writes so they cannot consume each other's replies.
+        await _nativeClipboardAccess.WaitAsync(ct).ConfigureAwait(false);
+        try { return await _desktopTextReader!(ct).ConfigureAwait(false); }
+        finally { _nativeClipboardAccess.Release(); }
     }
 
     public async Task<string?> GetTextAsync(CancellationToken ct = default)
     {
+        if (_desktopTextReader != null)
+        {
+            try { return await ReadNativeTextAsync(ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch { /* Try the command backend if native clipboard is unavailable. */ }
+        }
+
         // 优先走 xclip (无窗口、不会导致 GNOME Wayland Dock 图标闪现)
         if (_hasX11Display)
         {
@@ -52,6 +85,17 @@ public sealed class LinuxClipboardService : IClipboardService
     public async Task SetTextAsync(string text, CancellationToken ct = default)
     {
         if (text is null) return;
+        if (_desktopTextWriter != null)
+        {
+            await _nativeClipboardAccess.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                await _desktopTextWriter(text, ct).ConfigureAwait(false);
+                _lastClipboardText = text;
+            }
+            finally { _nativeClipboardAccess.Release(); }
+            return;
+        }
 
         if (_hasX11Display)
         {
@@ -82,7 +126,9 @@ public sealed class LinuxClipboardService : IClipboardService
             if (!string.IsNullOrWhiteSpace(text)) return text;
         }
 
-        if (_hasWaylandDisplay)
+        // Primary Selection is sampled by the global mouse hook. Never invoke the
+        // focus-stealing wl-paste fallback on every click in GNOME Wayland.
+        if (_hasWaylandDisplay && !_isGnomeWayland)
         {
             var text = await RunReadCommandAsync("wl-paste", ["--primary", "--no-newline"], ct).ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(text)) return text;
@@ -142,6 +188,8 @@ public sealed class LinuxClipboardService : IClipboardService
         lock (_monitorLock)
         {
             if (_monitorCts != null) return;
+            ObjectDisposedException.ThrowIf(_isDisposed, this);
+            _lastClipboardText = null;
             _monitorCts = new CancellationTokenSource();
             var token = _monitorCts.Token;
             _monitorTask = Task.Run(() => MonitorLoopAsync(token), token);
@@ -172,43 +220,30 @@ public sealed class LinuxClipboardService : IClipboardService
 
     private async Task MonitorLoopAsync(CancellationToken ct)
     {
-        // 如果没有 X11/XWayland DISPLAY，不轮询 wl-paste，防止 GNOME Dock 图标闪现
-        if (!_hasX11Display)
-        {
-            return;
-        }
-
-        try
-        {
-            _lastClipboardText = await RunReadCommandAsync("xclip", ["-o", "-selection", "clipboard"], ct).ConfigureAwait(false);
-        }
-        catch
-        {
-            // Ignore initial read error
-        }
-
+        // Native access works even without xclip. Without it, use only the silent X11
+        // backend here: wl-paste's GNOME fallback can steal focus during polling.
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(900, ct).ConfigureAwait(false);
-
-                var currentClip = await RunReadCommandAsync("xclip", ["-o", "-selection", "clipboard"], ct).ConfigureAwait(false);
-                if (!string.IsNullOrWhiteSpace(currentClip) &&
-                    !string.Equals(currentClip, _lastClipboardText, StringComparison.Ordinal))
+                string? currentClip = _desktopTextReader != null
+                    ? await ReadNativeTextAsync(ct).ConfigureAwait(false)
+                    : _hasX11Display
+                        ? await RunReadCommandAsync("xclip", ["-o", "-selection", "clipboard"], ct).ConfigureAwait(false)
+                        : null;
+                ct.ThrowIfCancellationRequested();
+                if (currentClip != null && !string.Equals(currentClip, _lastClipboardText, StringComparison.Ordinal))
                 {
                     _lastClipboardText = currentClip;
-                    ClipboardTextChanged?.Invoke(this, currentClip);
+                    // Capture the clipboard already present at startup, not just subsequent copies.
+                    if (!string.IsNullOrWhiteSpace(currentClip)) ClipboardTextChanged?.Invoke(this, currentClip);
                 }
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch
-            {
-                // 忽略单次异常
-            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
+            catch { /* Retry after transient clipboard ownership changes. */ }
+
+            try { await Task.Delay(500, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { break; }
         }
     }
 
@@ -223,7 +258,7 @@ public sealed class LinuxClipboardService : IClipboardService
                 {
                     FileName = fileName,
                     RedirectStandardOutput = true,
-                    RedirectStandardError = false,
+                    RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     StandardOutputEncoding = Encoding.UTF8
@@ -240,7 +275,9 @@ public sealed class LinuxClipboardService : IClipboardService
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(1200);
 
+            var errorTask = process.StandardError.ReadToEndAsync(timeoutCts.Token);
             var output = await process.StandardOutput.ReadToEndAsync(timeoutCts.Token).ConfigureAwait(false);
+            await errorTask.ConfigureAwait(false);
             await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
 
             return process.ExitCode == 0 ? output : null;
@@ -307,7 +344,7 @@ public sealed class LinuxClipboardService : IClipboardService
                 // xclip forks into background to serve X11 selection requests; closing stdin is sufficient
             }
 
-            return true;
+            return !ct.IsCancellationRequested && (!process.HasExited || process.ExitCode == 0);
         }
         catch
         {
