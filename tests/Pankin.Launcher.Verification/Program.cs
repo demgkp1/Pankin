@@ -37,6 +37,7 @@ internal static class Program
         Environment.SetEnvironmentVariable("XDG_DATA_HOME", Path.Combine(isolation, "data"));
         var code = 0;
         AppBuilder.Configure<VerificationApp>().UsePlatformDetect().WithInterFont()
+            .With(Pankin.Desktop.Program.CreateFontManagerOptions())
             .With(new X11PlatformOptions { WmClass = "pankin-verification" }).LogToTrace().SetupWithoutStarting();
         Dispatcher.UIThread.Post(async () =>
         {

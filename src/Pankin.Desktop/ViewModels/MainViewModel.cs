@@ -18,12 +18,25 @@ namespace Pankin.Desktop.ViewModels;
 
 public sealed class AppTileItem : ObservableObject
 {
+    private Bitmap? _iconBitmap;
+
     public string Id { get; }
     public string Name { get; }
     public string? Subtitle { get; }
     public string BadgeColor { get; }
     public string Glyph { get; }
-    public Bitmap? IconBitmap { get; }
+    public Bitmap? IconBitmap
+    {
+        get => _iconBitmap;
+        set
+        {
+            if (SetProperty(ref _iconBitmap, value))
+            {
+                OnPropertyChanged(nameof(ShowIconPath));
+                OnPropertyChanged(nameof(ShowGlyph));
+            }
+        }
+    }
     public string? IconPathData { get; }
     public StreamGeometry? IconGeometry => IconPathData != null ? LucideIcons.GetGeometry(IconPathData) : null;
     public bool HasIconPath => IconPathData != null;
@@ -61,7 +74,7 @@ public sealed class AppTileItem : ObservableObject
         Subtitle = subtitle;
         BadgeColor = badgeColor;
         Glyph = glyph;
-        IconBitmap = iconBitmap;
+        _iconBitmap = iconBitmap;
         LaunchCommand = new RelayCommand(onLaunch);
         IconPathData = iconPathData;
         IsPinned = isPinned;
@@ -342,6 +355,9 @@ public partial class MainViewModel : ViewModelBase
     private readonly DesktopAppContext _context;
     private CancellationTokenSource? _searchCts;
     private int _searchVersion;
+    private int _defaultAppsReloadQueued;
+    private string[] _lastPinnedAppIds = [];
+    private int _lastMaxRecentApps;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSearchEmpty))]
@@ -400,14 +416,14 @@ public partial class MainViewModel : ViewModelBase
         LoadDefaultApps();
         BuildQuickActions();
 
-        _context.LauncherSearch.UsageChanged += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            LoadDefaultApps();
-        });
-        _context.SettingsStore.Changed += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        _context.LauncherSearch.UsageChanged += (_, _) => QueueDefaultAppsReload();
+        _context.SettingsStore.Changed += (_, _) => Dispatcher.UIThread.Post(() =>
         {
             OnPropertyChanged(nameof(HotkeyDisplay));
-            LoadDefaultApps();
+            if (HasDefaultAppsSettingsChanged())
+            {
+                QueueDefaultAppsReload();
+            }
         });
     }
 
@@ -561,17 +577,17 @@ public partial class MainViewModel : ViewModelBase
 
     private AppTileItem CreateAppTile(AppEntry app, bool isPinned)
     {
-        var icon = LinuxIconHelper.TryLoadIcon(app.Icon);
+        bool hasCachedIcon = LinuxIconHelper.TryGetCachedIcon(app.Icon, out var cachedIcon);
         var color = LinuxIconHelper.GetGradientColor(app.DisplayName);
         var glyph = LinuxIconHelper.GetGlyphChar(app.DisplayName);
 
-        return new AppTileItem(
+        var tile = new AppTileItem(
             id: app.Id,
             name: app.DisplayName,
             subtitle: app.Exec,
             badgeColor: color,
             glyph: glyph,
-            iconBitmap: icon,
+            iconBitmap: cachedIcon,
             iconPathData: null,
             isPinned: isPinned,
             canOpenLocation: true,
@@ -597,30 +613,61 @@ public partial class MainViewModel : ViewModelBase
                 if (!string.IsNullOrEmpty(app.Exec))
                 {
                     _ = _context.ActionHost.OpenAsync(app.Exec, elevated: true);
+                    _context.LauncherSearch.RecordUsage(app.Id);
                 }
             });
+
+        if (!hasCachedIcon && !string.IsNullOrWhiteSpace(app.Icon))
+        {
+            _ = LoadTileIconAsync(tile, app.Icon);
+        }
+
+        return tile;
     }
+
+    private static async Task LoadTileIconAsync(AppTileItem tile, string iconName)
+    {
+        try
+        {
+            var loaded = await LinuxIconHelper.TryLoadIconAsync(iconName).ConfigureAwait(false);
+            if (loaded != null)
+            {
+                Dispatcher.UIThread.Post(() => tile.IconBitmap = loaded);
+            }
+        }
+        catch
+        {
+            // 忽略非致命图标加载异常
+        }
+    }
+
+    private static bool IsSupportedBuiltinTile(string id) => id.ToLowerInvariant() switch
+    {
+        "builtin:clipboard" or "builtin:superpanel" or "builtin:filesearch"
+            or "builtin:rename" or "builtin:powertimer" or "builtin:settings" => true,
+        _ => false
+    };
 
     private void InitPinnedTools()
     {
-        PinnedTools.Clear();
-
         var pinnedIds = _context.SettingsStore.Current.Launcher.PinnedAppIds;
         if (pinnedIds == null || pinnedIds.Count == 0)
         {
+            ReconcileAppTiles(PinnedTools, []);
             return;
         }
 
         var cached = _context.LauncherSearch.CachedApps;
+        var targets = new List<AppTileTarget>(pinnedIds.Count);
 
         foreach (var id in pinnedIds)
         {
             if (id.StartsWith("builtin:", StringComparison.OrdinalIgnoreCase))
             {
-                var tile = CreateBuiltinTile(id);
-                if (tile != null)
+                if (IsSupportedBuiltinTile(id))
                 {
-                    PinnedTools.Add(tile);
+                    var capturedId = id;
+                    targets.Add(new AppTileTarget(capturedId, true, () => CreateBuiltinTile(capturedId)!));
                 }
             }
             else
@@ -628,25 +675,155 @@ public partial class MainViewModel : ViewModelBase
                 var app = cached.FirstOrDefault(a => string.Equals(a.Id, id, StringComparison.OrdinalIgnoreCase));
                 if (app != null)
                 {
-                    PinnedTools.Add(CreateAppTile(app, isPinned: true));
+                    var capturedApp = app;
+                    targets.Add(new AppTileTarget(capturedApp.Id, true, () => CreateAppTile(capturedApp, isPinned: true)));
                 }
             }
         }
+
+        ReconcileAppTiles(PinnedTools, targets);
     }
 
     public void LoadDefaultApps()
     {
         InitPinnedTools();
-        RecentApps.Clear();
-        int maxCount = Math.Clamp(_context.SettingsStore.Current.Launcher.MaxRecentApps, 1, 28);
-        var apps = _context.LauncherSearch.GetRecentApps(maxCount);
-        var pinnedIds = _context.SettingsStore.Current.Launcher.PinnedAppIds ?? [];
 
+        var launcher = _context.SettingsStore.Current.Launcher;
+        _lastPinnedAppIds = (launcher.PinnedAppIds ?? []).ToArray();
+        _lastMaxRecentApps = launcher.MaxRecentApps;
+
+        int maxCount = Math.Clamp(launcher.MaxRecentApps, 1, 28);
+        var apps = _context.LauncherSearch.GetRecentApps(maxCount);
+        var pinnedIds = launcher.PinnedAppIds ?? [];
+
+        var targets = new List<AppTileTarget>(apps.Count);
         foreach (var app in apps)
         {
             bool isPinned = pinnedIds.Contains(app.Id, StringComparer.OrdinalIgnoreCase);
-            RecentApps.Add(CreateAppTile(app, isPinned));
+            var capturedApp = app;
+            targets.Add(new AppTileTarget(capturedApp.Id, isPinned, () => CreateAppTile(capturedApp, isPinned)));
         }
+
+        ReconcileAppTiles(RecentApps, targets);
+    }
+
+    private void QueueDefaultAppsReload()
+    {
+        if (Interlocked.Exchange(ref _defaultAppsReloadQueued, 1) == 0)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                Interlocked.Exchange(ref _defaultAppsReloadQueued, 0);
+                LoadDefaultApps();
+            });
+        }
+    }
+
+    private bool HasDefaultAppsSettingsChanged()
+    {
+        var launcher = _context.SettingsStore.Current.Launcher;
+        if (_lastMaxRecentApps != launcher.MaxRecentApps)
+        {
+            return true;
+        }
+
+        var currentPinned = launcher.PinnedAppIds ?? [];
+        if (_lastPinnedAppIds.Length != currentPinned.Count)
+        {
+            return true;
+        }
+
+        for (int i = 0; i < _lastPinnedAppIds.Length; i++)
+        {
+            if (!string.Equals(_lastPinnedAppIds[i], currentPinned[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void ReconcileAppTiles(ObservableCollection<AppTileItem> collection, IReadOnlyList<AppTileTarget> targets)
+    {
+        if (targets.Count == 0)
+        {
+            for (int i = collection.Count - 1; i >= 0; i--)
+            {
+                collection.RemoveAt(i);
+            }
+            return;
+        }
+
+        var neededCounts = new Dictionary<AppTileKey, int>(targets.Count);
+        foreach (var target in targets)
+        {
+            var key = new AppTileKey(target.Id, target.IsPinned);
+            neededCounts[key] = neededCounts.TryGetValue(key, out int count) ? count + 1 : 1;
+        }
+
+        for (int i = collection.Count - 1; i >= 0; i--)
+        {
+            var key = new AppTileKey(collection[i].Id, collection[i].IsPinned);
+            if (neededCounts.TryGetValue(key, out int count) && count > 0)
+            {
+                neededCounts[key] = count - 1;
+            }
+            else
+            {
+                collection.RemoveAt(i);
+            }
+        }
+
+        for (int i = 0; i < targets.Count; i++)
+        {
+            var target = targets[i];
+            int matchIndex = -1;
+            for (int j = i; j < collection.Count; j++)
+            {
+                if (collection[j].IsPinned == target.IsPinned
+                    && string.Equals(collection[j].Id, target.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    matchIndex = j;
+                    break;
+                }
+            }
+
+            if (matchIndex == i)
+            {
+                continue;
+            }
+
+            if (matchIndex > i)
+            {
+                collection.Move(matchIndex, i);
+            }
+            else
+            {
+                collection.Insert(i, target.Create());
+            }
+        }
+
+        while (collection.Count > targets.Count)
+        {
+            collection.RemoveAt(collection.Count - 1);
+        }
+    }
+
+    private readonly record struct AppTileTarget(string Id, bool IsPinned, Func<AppTileItem> Create);
+
+    private readonly struct AppTileKey(string id, bool isPinned) : IEquatable<AppTileKey>
+    {
+        public string Id { get; } = id;
+        public bool IsPinned { get; } = isPinned;
+
+        public bool Equals(AppTileKey other) =>
+            IsPinned == other.IsPinned && string.Equals(Id, other.Id, StringComparison.OrdinalIgnoreCase);
+
+        public override bool Equals(object? obj) => obj is AppTileKey other && Equals(other);
+
+        public override int GetHashCode() =>
+            HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(Id), IsPinned);
     }
 
     private void BuildQuickActions()

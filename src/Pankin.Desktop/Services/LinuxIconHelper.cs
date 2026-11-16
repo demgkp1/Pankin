@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 
 namespace Pankin.Desktop.Services;
@@ -40,6 +41,35 @@ public static class LinuxIconHelper
             }
         }
         return "✦";
+    }
+
+    public static bool TryGetCachedIcon(string? iconName, out Bitmap? bitmap)
+    {
+        if (!string.IsNullOrWhiteSpace(iconName)
+            && IconCache.TryGetValue(iconName, out var lazy)
+            && lazy.IsValueCreated)
+        {
+            bitmap = lazy.Value;
+            return true;
+        }
+
+        bitmap = null;
+        return false;
+    }
+
+    public static Task<Bitmap?> TryLoadIconAsync(string? iconName)
+    {
+        if (TryGetCachedIcon(iconName, out var cached))
+        {
+            return Task.FromResult(cached);
+        }
+
+        if (string.IsNullOrWhiteSpace(iconName))
+        {
+            return Task.FromResult<Bitmap?>(null);
+        }
+
+        return Task.Run(() => TryLoadIcon(iconName));
     }
 
     public static Bitmap? TryLoadIcon(string? iconName)

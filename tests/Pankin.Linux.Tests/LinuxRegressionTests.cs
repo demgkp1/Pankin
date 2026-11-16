@@ -228,6 +228,43 @@ public sealed class LinuxRegressionTests : IDisposable
         Assert.Equal(0, Volatile.Read(ref overlap));
     }
 
+    [Fact]
+    public void ParseNiriFocusedWindowExtractsAppIdAndTitle()
+    {
+        const string json = """
+            {"id":42,"title":"README.md - Visual Studio Code","app_id":"code","workspace_id":2,"is_focused":true}
+            """;
+
+        var info = LinuxWindowInfoResolver.ParseNiriFocusedWindow(json);
+
+        Assert.NotNull(info);
+        Assert.Equal("code", info.AppName);
+        Assert.Equal("README.md - Visual Studio Code", info.Title);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("null")]
+    [InlineData("{}")]
+    [InlineData("""{"app_id":"   ","title":""}""")]
+    [InlineData("{invalid json")]
+    public void ParseNiriFocusedWindowReturnsNullForEmptyOrInvalidPayloads(string? json)
+    {
+        Assert.Null(LinuxWindowInfoResolver.ParseNiriFocusedWindow(json));
+    }
+
+    [Fact]
+    public void ParseNiriFocusedWindowAllowsPartialMetadata()
+    {
+        var appOnly = LinuxWindowInfoResolver.ParseNiriFocusedWindow("""{"app_id":"foot","title":null}""");
+        var titleOnly = LinuxWindowInfoResolver.ParseNiriFocusedWindow("""{"app_id":"","title":"Floating Window"}""");
+
+        Assert.Equal(new LinuxActiveWindowInfo("foot", null), appOnly);
+        Assert.Equal(new LinuxActiveWindowInfo(null, "Floating Window"), titleOnly);
+    }
+
     private static async Task WaitForAsync(Func<bool> condition)
     {
         var timer = Stopwatch.StartNew();

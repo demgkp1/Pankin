@@ -120,13 +120,13 @@ public sealed class ApplicationSource : LauncherSource
         var app = context.Apps.FirstOrDefault(a => a.Id == item.Id) ?? (item.Tag as AppEntry);
         if (app != null)
         {
-            await _appScanner.LaunchAppAsync(app, token).ConfigureAwait(false);
             _recordUsage(app.Id);
+            await _appScanner.LaunchAppAsync(app, token).ConfigureAwait(false);
         }
         else
         {
-            await _actionHost.OpenAsync(item.Subtitle ?? item.Title, false, token).ConfigureAwait(false);
             _recordUsage(item.Id);
+            await _actionHost.OpenAsync(item.Subtitle ?? item.Title, false, token).ConfigureAwait(false);
         }
     }
 }

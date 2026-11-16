@@ -59,12 +59,22 @@ public class LauncherSearchTests
         public Task<bool> ShowPropertiesAsync(string path, CancellationToken ct = default) => Task.FromResult(true);
     }
 
+    private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        private DateTimeOffset _utcNow = utcNow;
+
+        public void Advance(TimeSpan delta) => _utcNow = _utcNow.Add(delta);
+
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+    }
+
     private static LauncherSearch CreateLauncherSearch(
         string tempConfigPath,
         IReadOnlyList<AppEntry>? apps = null,
         IReadOnlyList<FileSearchResult>? files = null,
         FakeAppScanner? appScanner = null,
-        FakeLauncherActionHost? actionHost = null)
+        FakeLauncherActionHost? actionHost = null,
+        TimeProvider? clock = null)
     {
         var sampleApps = apps ??
         [
@@ -82,7 +92,8 @@ public class LauncherSearchTests
             appScanner,
             fileSearcher,
             actionHost,
-            settingsStore);
+            settingsStore,
+            clock: clock);
 
         // 等待初始扫描加载完成
         search.RefreshAppsAsync().GetAwaiter().GetResult();
@@ -133,6 +144,7 @@ public class LauncherSearchTests
             if (group == LauncherGroups.Recent)
             {
                 search.RecordUsage(appId);
+                search.Dispose();
             }
             else
             {
@@ -544,6 +556,177 @@ public class LauncherSearchTests
             Assert.Equal(100, noiseItem.Score);
             Assert.Equal("file:" + workspaceFile.FullPath, fileItems[0].Id);
             Assert.True(workspaceItem.Score > noiseItem.Score);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    private sealed class CoalescingAppScanner(IReadOnlyList<AppEntry> initialApps) : IAppScanner
+    {
+        private int _scanCount;
+        private TaskCompletionSource<IReadOnlyList<AppEntry>>? _nextScanGate;
+
+        public int ScanCount => Volatile.Read(ref _scanCount);
+
+        public TaskCompletionSource<IReadOnlyList<AppEntry>> ArmGate()
+        {
+            var tcs = new TaskCompletionSource<IReadOnlyList<AppEntry>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _nextScanGate = tcs;
+            return tcs;
+        }
+
+        public async Task<IReadOnlyList<AppEntry>> ScanAppsAsync(CancellationToken ct = default)
+        {
+            Interlocked.Increment(ref _scanCount);
+            var gate = Interlocked.Exchange(ref _nextScanGate, null);
+            if (gate != null)
+            {
+                return await gate.Task.WaitAsync(ct);
+            }
+            return initialApps;
+        }
+
+        public IReadOnlyList<AppEntry> SearchApps(string query, int maxResults = 20) =>
+            initialApps.Take(maxResults).ToList();
+
+        public Task<bool> LaunchAppAsync(AppEntry app, CancellationToken ct = default) =>
+            Task.FromResult(true);
+    }
+
+    [Fact]
+    public void RecordUsage_ShouldImmediatelyUpdateGetRecentAppsInMemory()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            var clock = new MutableTimeProvider(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
+            using (var search = CreateLauncherSearch(tempFile, clock: clock))
+            {
+                search.RecordUsage("CODE");
+
+                var recents = search.GetRecentApps(5);
+                Assert.NotEmpty(recents);
+                Assert.Equal("code", recents[0].Id);
+
+                clock.Advance(TimeSpan.FromSeconds(5));
+                search.RecordUsage("ORG.GNOME.CALCULATOR");
+
+                recents = search.GetRecentApps(5);
+                Assert.Equal("org.gnome.Calculator", recents[0].Id);
+                Assert.Equal("code", recents[1].Id);
+            }
+
+            var usagePath = Path.Combine(Path.GetDirectoryName(tempFile)!, "launcher-usage.json");
+            Assert.True(File.Exists(usagePath));
+
+            using var reloaded = CreateLauncherSearch(tempFile, clock: clock);
+            var persistedRecents = reloaded.GetRecentApps(5);
+            Assert.Equal("org.gnome.Calculator", persistedRecents[0].Id);
+            Assert.Equal("code", persistedRecents[1].Id);
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public async Task RefreshAppsAsync_ShouldCoalesceConcurrentScans()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            var initialApps = new AppEntry[]
+            {
+                new("code", "Visual Studio Code", "代码编辑器", "code", null, "/usr/share/applications/code.desktop")
+            };
+            var refreshedApps = new AppEntry[]
+            {
+                new("code", "Visual Studio Code", "代码编辑器", "code", null, "/usr/share/applications/code.desktop"),
+                new("org.gnome.Calculator", "Calculator", "计算器", "gnome-calculator", null, "/usr/share/applications/org.gnome.Calculator.desktop")
+            };
+
+            var scanner = new CoalescingAppScanner(initialApps);
+            using var search = new LauncherSearch(
+                scanner,
+                new FakeFileSearcher(),
+                new FakeLauncherActionHost(),
+                new SettingsStore(tempFile));
+
+            // 等待构造器触发的初始扫描完成
+            await search.RefreshAppsAsync();
+            var scansBefore = scanner.ScanCount;
+
+            var gate = scanner.ArmGate();
+            var task1 = search.RefreshAppsAsync();
+            var task2 = search.RefreshAppsAsync();
+
+            gate.SetResult(refreshedApps);
+            await Task.WhenAll(task1, task2);
+
+            Assert.Equal(scansBefore + 1, scanner.ScanCount);
+            Assert.Equal(2, search.CachedApps.Count);
+            Assert.Contains(search.CachedApps, a => a.Id == "org.gnome.Calculator");
+        }
+        finally
+        {
+            var dir = Path.GetDirectoryName(tempFile);
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void ClearLastExternalApp_ShouldAllowReRecordingSameApp()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), "pankin-test-" + Guid.NewGuid(), "settings.json");
+        try
+        {
+            var clock = new MutableTimeProvider(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
+            using var search = CreateLauncherSearch(tempFile, clock: clock);
+            int usageCount = 0;
+            search.UsageChanged += (_, _) => usageCount++;
+
+            // 1. 首次记录外部激活 gnome-calculator
+            search.RecordExternalAppActivation("gnome-calculator");
+            Assert.Equal(1, usageCount);
+            Assert.Equal("org.gnome.Calculator", search.GetRecentApps(5)[0].Id);
+
+            // 记录另一个内部使用，使 code 的 LastUsed 更新，从而可验证 Calculator 的 LastUsed 是否刷新
+            clock.Advance(TimeSpan.FromSeconds(10));
+            search.RecordUsage("code");
+            Assert.Equal(2, usageCount);
+            Assert.Equal("code", search.GetRecentApps(5)[0].Id);
+
+            // 2. 未清理状态前重复激活相同外部应用，应被去重忽略
+            clock.Advance(TimeSpan.FromSeconds(10));
+            search.RecordExternalAppActivation("gnome-calculator");
+            Assert.Equal(2, usageCount);
+            Assert.Equal("code", search.GetRecentApps(5)[0].Id);
+
+            // 3. 调用 ClearLastExternalApp 后再次激活，应推进 LastUsed 并再次触发 UsageChanged
+            search.ClearLastExternalApp();
+            clock.Advance(TimeSpan.FromSeconds(10));
+            search.RecordExternalAppActivation("gnome-calculator");
+            Assert.Equal(3, usageCount);
+            Assert.Equal("org.gnome.Calculator", search.GetRecentApps(5)[0].Id);
+
+            // 4. 切换到 code 后再通过未匹配外部应用重置，再次切回 gnome-calculator 同样应刷新 LastUsed
+            clock.Advance(TimeSpan.FromSeconds(10));
+            search.RecordUsage("code");
+            Assert.Equal(4, usageCount);
+            Assert.Equal("code", search.GetRecentApps(5)[0].Id);
+
+            search.RecordExternalAppActivation("unknown-wayland-app");
+            Assert.Equal(4, usageCount);
+
+            clock.Advance(TimeSpan.FromSeconds(10));
+            search.RecordExternalAppActivation("gnome-calculator");
+            Assert.Equal(5, usageCount);
+            Assert.Equal("org.gnome.Calculator", search.GetRecentApps(5)[0].Id);
         }
         finally
         {

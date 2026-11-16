@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Pankin.Core.Abstractions;
@@ -48,6 +51,9 @@ public sealed class DesktopAppContext : IDisposable
     private readonly CancellationTokenSource _windowWatcherCts = new();
     private Task? _windowWatcherTask;
     private string? _lastForegroundApp;
+    private readonly List<FileSystemWatcher> _desktopWatchers = [];
+    private readonly object _desktopRefreshLock = new();
+    private CancellationTokenSource? _desktopRefreshDebounceCts;
     private bool _isDisposed;
 
     public DesktopAppContext()
@@ -86,7 +92,7 @@ public sealed class DesktopAppContext : IDisposable
         SetupWizardService = new SetupWizardService();
 
         UpdateService = new UpdateService(
-            currentVersion: "0.4.0",
+            currentVersion: "0.4.1",
             automatic: () => SettingsStore.Current.Update.AutoUpdate,
             openReleaseUrlOrInstall: url => _ = ActionHost.OpenAsync(url));
 
@@ -121,6 +127,7 @@ public sealed class DesktopAppContext : IDisposable
 
         SettingsStore.Changed += OnSettingsChanged;
         StartWindowWatcher();
+        StartDesktopEntryWatcher();
     }
 
     public async Task InitializeAsync(CancellationToken ct = default)
@@ -182,15 +189,21 @@ public sealed class DesktopAppContext : IDisposable
             {
                 try
                 {
-                    await Task.Delay(2000, token).ConfigureAwait(false);
+                    await Task.Delay(1000, token).ConfigureAwait(false);
                     var info = await LinuxWindowInfoResolver.GetActiveWindowInfoAsync(token).ConfigureAwait(false);
-                    if (info?.AppName != null && !string.IsNullOrWhiteSpace(info.AppName))
+                    if (string.IsNullOrWhiteSpace(info?.AppName))
                     {
-                        if (!string.Equals(_lastForegroundApp, info.AppName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            _lastForegroundApp = info.AppName;
-                            LauncherSearch.RecordExternalAppActivation(info.AppName);
-                        }
+                        _lastForegroundApp = null;
+                        LauncherSearch.ClearLastExternalApp();
+                    }
+                    else if (info.AppName.Contains("pankin", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _lastForegroundApp = info.AppName;
+                    }
+                    else if (!string.Equals(_lastForegroundApp, info.AppName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _lastForegroundApp = info.AppName;
+                        LauncherSearch.RecordExternalAppActivation(info.AppName);
                     }
                 }
                 catch (OperationCanceledException)
@@ -205,10 +218,113 @@ public sealed class DesktopAppContext : IDisposable
         }, _windowWatcherCts.Token);
     }
 
+    private void StartDesktopEntryWatcher()
+    {
+        var userAppsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".local",
+            "share",
+            "applications");
+
+        string[] candidateDirs =
+        [
+            userAppsDir,
+            "/usr/share/applications",
+            "/usr/local/share/applications"
+        ];
+
+        foreach (var dir in candidateDirs.Distinct(StringComparer.Ordinal))
+        {
+            if (!Directory.Exists(dir)) continue;
+
+            try
+            {
+                var watcher = new FileSystemWatcher(dir, "*.desktop")
+                {
+                    IncludeSubdirectories = true,
+                    NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime,
+                    EnableRaisingEvents = true
+                };
+
+                watcher.Created += OnDesktopEntryChanged;
+                watcher.Changed += OnDesktopEntryChanged;
+                watcher.Deleted += OnDesktopEntryChanged;
+                watcher.Renamed += OnDesktopEntryRenamed;
+
+                _desktopWatchers.Add(watcher);
+            }
+            catch
+            {
+                // Ignore watcher creation failures (e.g. inotify limits or permissions)
+            }
+        }
+    }
+
+    private void OnDesktopEntryChanged(object sender, FileSystemEventArgs e) => ScheduleDesktopEntryRefresh();
+
+    private void OnDesktopEntryRenamed(object sender, RenamedEventArgs e) => ScheduleDesktopEntryRefresh();
+
+    private void ScheduleDesktopEntryRefresh()
+    {
+        CancellationTokenSource debounceCts;
+        lock (_desktopRefreshLock)
+        {
+            if (_isDisposed || _windowWatcherCts.IsCancellationRequested) return;
+
+            _desktopRefreshDebounceCts?.Cancel();
+            _desktopRefreshDebounceCts?.Dispose();
+            debounceCts = CancellationTokenSource.CreateLinkedTokenSource(_windowWatcherCts.Token);
+            _desktopRefreshDebounceCts = debounceCts;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(1500, debounceCts.Token).ConfigureAwait(false);
+                await LauncherSearch.RefreshAppsAsync(_windowWatcherCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Debounced or disposed
+            }
+            catch
+            {
+                // Ignore transient refresh errors
+            }
+        }, CancellationToken.None);
+    }
+
     public void Dispose()
     {
         if (_isDisposed) return;
-        _isDisposed = true;
+
+        lock (_desktopRefreshLock)
+        {
+            if (_isDisposed) return;
+            _isDisposed = true;
+            _desktopRefreshDebounceCts?.Cancel();
+            _desktopRefreshDebounceCts?.Dispose();
+            _desktopRefreshDebounceCts = null;
+        }
+
+        foreach (var watcher in _desktopWatchers)
+        {
+            try
+            {
+                watcher.EnableRaisingEvents = false;
+                watcher.Created -= OnDesktopEntryChanged;
+                watcher.Changed -= OnDesktopEntryChanged;
+                watcher.Deleted -= OnDesktopEntryChanged;
+                watcher.Renamed -= OnDesktopEntryRenamed;
+                watcher.Dispose();
+            }
+            catch
+            {
+                // Ignore
+            }
+        }
+        _desktopWatchers.Clear();
 
         try
         {

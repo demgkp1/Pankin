@@ -26,9 +26,11 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
     private readonly CancellationTokenSource _lifetimeCts = new();
     private readonly string _usageFilePath;
 
-    private Dictionary<string, AppUsage> _usage = [];
+    private Dictionary<string, AppUsage> _usage = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<AppEntry> _cachedApps = [];
-    private Task _initialScanTask = Task.CompletedTask;
+    private Task? _inFlightScanTask;
+    private CancellationTokenSource? _pendingSaveCts;
+    private bool _usageDirty;
     private string? _lastExternalAppId;
     private bool _disposed;
 
@@ -121,16 +123,19 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
             if (File.Exists(_usageFilePath))
             {
                 var json = File.ReadAllText(_usageFilePath);
-                _usage = JsonSerializer.Deserialize(json, LauncherUsageJsonContext.Default.DictionaryStringAppUsage) ?? [];
+                var loaded = JsonSerializer.Deserialize(json, LauncherUsageJsonContext.Default.DictionaryStringAppUsage);
+                _usage = loaded != null
+                    ? new Dictionary<string, AppUsage>(loaded, StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, AppUsage>(StringComparer.OrdinalIgnoreCase);
             }
         }
         catch
         {
-            _usage = [];
+            _usage = new Dictionary<string, AppUsage>(StringComparer.OrdinalIgnoreCase);
         }
     }
 
-    private void SaveUsage()
+    private void WriteUsageSnapshot(Dictionary<string, AppUsage> snapshot)
     {
         try
         {
@@ -141,7 +146,7 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
             }
 
             var tmp = _usageFilePath + ".tmp";
-            var json = JsonSerializer.Serialize(_usage, LauncherUsageJsonContext.Default.DictionaryStringAppUsage);
+            var json = JsonSerializer.Serialize(snapshot, LauncherUsageJsonContext.Default.DictionaryStringAppUsage);
             File.WriteAllText(tmp, json);
             File.Move(tmp, _usageFilePath, true);
         }
@@ -151,16 +156,55 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
         }
     }
 
+    private async Task DebouncedSaveUsageAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(50, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        Dictionary<string, AppUsage>? snapshot = null;
+        lock (_lock)
+        {
+            if (_disposed || !_usageDirty) return;
+            snapshot = new Dictionary<string, AppUsage>(_usage, StringComparer.OrdinalIgnoreCase);
+            _usageDirty = false;
+        }
+
+        WriteUsageSnapshot(snapshot);
+    }
+
     public void RecordUsage(string id)
     {
+        CancellationToken saveToken;
         lock (_lock)
         {
             var current = _usage.GetValueOrDefault(id);
             int newCount = Math.Min(int.MaxValue - 1, (current?.Count ?? 0) + 1);
             _usage[id] = new AppUsage(newCount, _clock.GetUtcNow());
-            SaveUsage();
+            _usageDirty = true;
+
+            _pendingSaveCts?.Cancel();
+            _pendingSaveCts?.Dispose();
+            _pendingSaveCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
+            saveToken = _pendingSaveCts.Token;
         }
+
+        // 先立即通知内存状态变更，避免磁盘序列化与 I/O 阻塞最近应用列表刷新
         UsageChanged?.Invoke(this, EventArgs.Empty);
+        _ = DebouncedSaveUsageAsync(saveToken);
+    }
+
+    public void ClearLastExternalApp()
+    {
+        lock (_lock)
+        {
+            _lastExternalAppId = null;
+        }
     }
 
     public void RecordExternalAppActivation(string appNameOrClass)
@@ -224,32 +268,53 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
             }
             RecordUsage(matchedApp.Id);
         }
+        else
+        {
+            // 切换到未匹配的应用时重置状态，确保切回原应用时能刷新其 LastUsed
+            ClearLastExternalApp();
+        }
     }
 
     public Task RefreshAppsAsync(CancellationToken ct = default)
     {
+        if (ct.IsCancellationRequested)
+        {
+            return Task.FromCanceled(ct);
+        }
+
+        Task scanTask;
         lock (_lock)
         {
             if (_disposed) return Task.CompletedTask;
-            _initialScanTask = Task.Run(async () =>
+            if (_inFlightScanTask is { IsCompleted: false } existing)
             {
-                try
+                scanTask = existing;
+            }
+            else
+            {
+                var lifetimeToken = _lifetimeCts.Token;
+                _inFlightScanTask = Task.Run(async () =>
                 {
-                    var scanned = await _appScanner.ScanAppsAsync(ct).ConfigureAwait(false);
-                    var deduped = AppDeduplication.DeduplicateApps(scanned);
-                    lock (_lock)
+                    try
                     {
-                        _cachedApps = deduped;
+                        var scanned = await _appScanner.ScanAppsAsync(lifetimeToken).ConfigureAwait(false);
+                        var deduped = AppDeduplication.DeduplicateApps(scanned);
+                        lock (_lock)
+                        {
+                            _cachedApps = deduped;
+                        }
+                        UsageChanged?.Invoke(this, EventArgs.Empty);
                     }
-                    UsageChanged?.Invoke(this, EventArgs.Empty);
-                }
-                catch
-                {
-                    // 容错处理
-                }
-            }, ct);
-            return _initialScanTask;
+                    catch
+                    {
+                        // 容错处理
+                    }
+                }, lifetimeToken);
+                scanTask = _inFlightScanTask;
+            }
         }
+
+        return ct.CanBeCanceled ? scanTask.WaitAsync(ct) : scanTask;
     }
 
     public void RefreshApps() => _ = RefreshAppsAsync(_lifetimeCts.Token);
@@ -533,10 +598,24 @@ public sealed class LauncherSearch : ILauncherSearch, ILauncherItemActions, IDis
 
     public void Dispose()
     {
+        Dictionary<string, AppUsage>? dirtySnapshot = null;
         lock (_lock)
         {
             if (_disposed) return;
             _disposed = true;
+            if (_usageDirty)
+            {
+                dirtySnapshot = new Dictionary<string, AppUsage>(_usage, StringComparer.OrdinalIgnoreCase);
+                _usageDirty = false;
+            }
+            _pendingSaveCts?.Cancel();
+            _pendingSaveCts?.Dispose();
+            _pendingSaveCts = null;
+        }
+
+        if (dirtySnapshot != null)
+        {
+            WriteUsageSnapshot(dirtySnapshot);
         }
 
         _lifetimeCts.Cancel();
