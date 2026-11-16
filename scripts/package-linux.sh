@@ -9,7 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-VERSION="0.4.1"
+VERSION="0.5.0"
 APP_NAME="pankin"
 APP_DISPLAY_NAME="Pankin"
 DEB_ARCH="amd64"
@@ -24,6 +24,7 @@ TOOLS_DIR="${ROOT_DIR}/.tools"
 DEB_FILE="${ARTIFACTS_DIR}/${APP_NAME}_${VERSION}_${DEB_ARCH}.deb"
 APPIMAGE_FILE="${ARTIFACTS_DIR}/${APP_DISPLAY_NAME}-${VERSION}-${APPIMAGE_ARCH}.AppImage"
 ICON_FILE="${ARTIFACTS_DIR}/pankin.svg"
+ICON_PNG_FILE="${ARTIFACTS_DIR}/pankin.png"
 
 echo "========================================================"
 echo " Packaging ${APP_DISPLAY_NAME} v${VERSION} for Linux x64"
@@ -33,24 +34,10 @@ echo "========================================================"
 rm -rf "${PUBLISH_DIR}" "${DEB_ROOT}" "${APPDIR}"
 mkdir -p "${ARTIFACTS_DIR}"
 
-# 2. Generate Brand SVG Icon
-echo "==> [1/4] Generating application icon: ${ICON_FILE}"
-cat << 'EOF' > "${ICON_FILE}"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="pankinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#8B8DFF"/>
-      <stop offset="100%" stop-color="#5B57E8"/>
-    </linearGradient>
-    <filter id="pankinShadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.25"/>
-    </filter>
-  </defs>
-  <rect x="32" y="32" width="448" height="448" rx="96" ry="96" fill="url(#pankinGrad)" filter="url(#pankinShadow)"/>
-  <text x="256" y="348" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', sans-serif" font-size="280" font-weight="bold" fill="#FFFFFF" text-anchor="middle">P</text>
-</svg>
-EOF
+# 2. Copy Brand Logo Assets (Option B)
+echo "==> [1/4] Copying application icon assets: ${ICON_FILE}, ${ICON_PNG_FILE}"
+cp "${ROOT_DIR}/src/Pankin.Desktop/Assets/pankin-logo.svg" "${ICON_FILE}"
+cp "${ROOT_DIR}/src/Pankin.Desktop/Assets/pankin-logo.png" "${ICON_PNG_FILE}"
 
 # 3. Publish self-contained .NET 8 binary
 echo "==> [2/4] Publishing self-contained .NET 8 release to ${PUBLISH_DIR}..."
@@ -70,6 +57,7 @@ mkdir -p "${DEB_ROOT}/opt/pankin"
 mkdir -p "${DEB_ROOT}/usr/bin"
 mkdir -p "${DEB_ROOT}/usr/share/applications"
 mkdir -p "${DEB_ROOT}/usr/share/icons/hicolor/scalable/apps"
+mkdir -p "${DEB_ROOT}/usr/share/icons/hicolor/256x256/apps"
 mkdir -p "${DEB_ROOT}/usr/share/pixmaps"
 
 # Debian control file
@@ -113,6 +101,7 @@ chmod 755 "${DEB_ROOT}/usr/bin/pankin"
 
 cp "${ICON_FILE}" "${DEB_ROOT}/usr/share/icons/hicolor/scalable/apps/pankin.svg"
 cp "${ICON_FILE}" "${DEB_ROOT}/usr/share/pixmaps/pankin.svg"
+cp "${ICON_PNG_FILE}" "${DEB_ROOT}/usr/share/icons/hicolor/256x256/apps/pankin.png"
 
 chmod -R a+rX "${DEB_ROOT}"
 
@@ -125,6 +114,7 @@ echo "==> [4/4] Assembling AppDir structure..."
 mkdir -p "${APPDIR}/usr/bin"
 mkdir -p "${APPDIR}/usr/share/applications"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
+mkdir -p "${APPDIR}/usr/share/icons/hicolor/256x256/apps"
 mkdir -p "${APPDIR}/usr/share/pixmaps"
 
 # AppRun launcher script
@@ -154,14 +144,10 @@ EOF
 
 cp "${APPDIR}/pankin.desktop" "${APPDIR}/usr/share/applications/pankin.desktop"
 cp "${ICON_FILE}" "${APPDIR}/pankin.svg"
-# Recent appimagetool versions do not auto-create .DirIcon from an SVG.
-if command -v gdk-pixbuf-thumbnailer &>/dev/null; then
-  gdk-pixbuf-thumbnailer -s 256 "${ICON_FILE}" "${APPDIR}/pankin.png"
-  ln -s pankin.png "${APPDIR}/.DirIcon"
-else
-  ln -s pankin.svg "${APPDIR}/.DirIcon"
-fi
+cp "${ICON_PNG_FILE}" "${APPDIR}/pankin.png"
+cp "${ICON_PNG_FILE}" "${APPDIR}/.DirIcon"
 cp "${ICON_FILE}" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/pankin.svg"
+cp "${ICON_PNG_FILE}" "${APPDIR}/usr/share/icons/hicolor/256x256/apps/pankin.png"
 cp "${ICON_FILE}" "${APPDIR}/usr/share/pixmaps/pankin.svg"
 
 # Copy binaries into AppDir/usr/bin
@@ -210,5 +196,5 @@ echo ""
 echo "========================================================"
 echo " Packaging Success!"
 echo " Artifacts:"
-ls -lh "${DEB_FILE}" "${APPIMAGE_FILE}" "${CHECKSUMS_FILE}" "${ICON_FILE}"
+ls -lh "${DEB_FILE}" "${APPIMAGE_FILE}" "${CHECKSUMS_FILE}" "${ICON_FILE}" "${ICON_PNG_FILE}"
 echo "========================================================"

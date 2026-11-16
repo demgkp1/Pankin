@@ -86,7 +86,15 @@ public partial class MainWindow : Window
             FocusSearchInput();
         };
 
-        Closing += (_, _) => SaveWindowPositionIfNeeded();
+        Closing += (_, e) =>
+        {
+            SaveWindowPositionIfNeeded();
+            if (!App.IsShuttingDown)
+            {
+                e.Cancel = true;
+                Hide();
+            }
+        };
 
         Deactivated += (_, _) =>
             PanelWindowBehavior.HideAfterDeactivation(this, SaveWindowPositionIfNeeded);

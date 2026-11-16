@@ -32,6 +32,15 @@ public partial class ClipboardWindow : Window
 
         Deactivated += (_, _) => PanelWindowBehavior.HideAfterDeactivation(this);
 
+        Closing += (_, e) =>
+        {
+            if (!App.IsShuttingDown)
+            {
+                e.Cancel = true;
+                Hide();
+            }
+        };
+
         HistoryListBox.DoubleTapped += (_, _) =>
         {
             if (DataContext is ClipboardViewModel vm)

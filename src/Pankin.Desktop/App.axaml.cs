@@ -1,6 +1,7 @@
 using Pankin.Core.Selection;
 using System;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -12,6 +13,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Pankin.Core.Abstractions;
+using Pankin.Core.Modules.Hosting;
 using Pankin.Platform.Linux;
 using Pankin.Desktop.Services;
 using Pankin.Desktop.ViewModels;
@@ -23,6 +25,15 @@ namespace Pankin.Desktop;
 
 public partial class App : Application
 {
+    public static bool IsShuttingDown { get; private set; }
+
+    private static LaunchCommand _startupCommand = LaunchCommand.Show;
+
+    public static void SetStartupCommand(LaunchCommand command) => _startupCommand = command;
+
+    private IClassicDesktopStyleApplicationLifetime? _desktop;
+    private CancellationTokenSource? _ipcCts;
+
     private MainWindow? _mainWindow;
     private ClipboardWindow? _clipboardWindow;
     private SuperPanelWindow? _superPanelWindow;
@@ -47,7 +58,20 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            _desktop = desktop;
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            desktop.Exit += (_, _) =>
+            {
+                try
+                {
+                    _ipcCts?.Cancel();
+                }
+                catch
+                {
+                    // Ignore cancellation race during exit
+                }
+                SingleInstanceCoordinator.Release();
+            };
 
             var appIcon = CreateAppIcon();
 
@@ -79,9 +103,9 @@ public partial class App : Application
                 Icon = appIcon
             };
 
-            var isAutostart = desktop.Args?.Length == 1 && desktop.Args[0] == "--autostart";
-            // The lifetime automatically shows MainWindow. Leave it unset for a tray-only login.
-            if (!isAutostart) desktop.MainWindow = _mainWindow;
+            bool shouldShowMain = _startupCommand is LaunchCommand.Show or LaunchCommand.Toggle;
+            // The lifetime automatically shows MainWindow. Leave it unset for background/sub-window launches.
+            if (shouldShowMain) desktop.MainWindow = _mainWindow;
 
             if (DesktopAppContext.Instance.ClipboardService is LinuxClipboardService clipboard)
             {
@@ -159,13 +183,32 @@ public partial class App : Application
                 context.SettingsStore.Save(updated);
             }
 
+            // 启动单实例 IPC 监听
+            _ipcCts = new CancellationTokenSource();
+            _ = Task.Run(() => SingleInstanceCoordinator.ListenAsync(OnIpcCommandReceived, _ipcCts.Token));
+
             ApplySavedMainWindowPosition();
-            if (!isAutostart)
+            switch (_startupCommand)
             {
-                _mainWindow.Show();
-                _mainWindow.Activate();
-                _mainWindow.FocusSearchInput();
-                _mainWindowShownMs = Environment.TickCount64;
+                case LaunchCommand.Show:
+                case LaunchCommand.Toggle:
+                    _mainWindow.Show();
+                    _mainWindow.Activate();
+                    _mainWindow.FocusSearchInput();
+                    _mainWindowShownMs = Environment.TickCount64;
+                    break;
+                case LaunchCommand.Clipboard:
+                    Dispatcher.UIThread.Post(() => ToggleClipboardWindow(bypassThrottle: true));
+                    break;
+                case LaunchCommand.SuperPanel:
+                    Dispatcher.UIThread.Post(() => ShowSuperPanel(bypassThrottle: true));
+                    break;
+                case LaunchCommand.Settings:
+                    Dispatcher.UIThread.Post(() => ShowSettings(bypassThrottle: true));
+                    break;
+                case LaunchCommand.Autostart:
+                default:
+                    break;
             }
         }
 
@@ -365,16 +408,12 @@ public partial class App : Application
         menu.Add(new NativeMenuItemSeparator());
 
         var itemExit = new NativeMenuItem("退出 Pankin");
-        itemExit.Click += (_, _) =>
-        {
-            DesktopAppContext.Instance.Dispose();
-            desktop.Shutdown();
-        };
+        itemExit.Click += (_, _) => ShutdownGracefully();
         menu.Add(itemExit);
 
         var trayIcon = new TrayIcon
         {
-            Icon = appIcon,
+            Icon = CreateTrayIcon(appIcon),
             ToolTipText = "Pankin - Linux 桌面效率工具",
             IsVisible = true,
             Menu = menu
@@ -581,10 +620,7 @@ public partial class App : Application
 
                 ApplySavedMainWindowPosition();
 
-                _mainWindow.Show();
-                _mainWindow.Topmost = false;
-                _mainWindow.Topmost = true;
-                _mainWindow.Activate();
+                SurfaceWindow(_mainWindow);
                 _mainWindow.FocusSearchInput();
                 _mainWindowShownMs = Environment.TickCount64;
             }
@@ -610,10 +646,7 @@ public partial class App : Application
                 _superPanelWindow?.Hide();
 
                 _clipboardVm?.ReloadItems();
-                _clipboardWindow.Show();
-                _clipboardWindow.Topmost = false;
-                _clipboardWindow.Topmost = true;
-                _clipboardWindow.Activate();
+                SurfaceWindow(_clipboardWindow);
                 _clipboardWindow.FocusSearchInput();
                 _clipboardWindowShownMs = Environment.TickCount64;
             }
@@ -663,10 +696,12 @@ public partial class App : Application
                     Timestamp: DateTime.UtcNow,
                     Failure: string.IsNullOrWhiteSpace(resolvedText) ? SelectionFailure.Empty : SelectionFailure.None);
 
+                if (_superPanelWindow.WindowState == WindowState.Minimized)
+                {
+                    _superPanelWindow.WindowState = WindowState.Normal;
+                }
                 _superPanelWindow.ShowNearPointer(ctx, mode);
-                _superPanelWindow.Topmost = false;
-                _superPanelWindow.Topmost = true;
-                _superPanelWindow.Activate();
+                SurfaceWindow(_superPanelWindow);
                 _superPanelWindowShownMs = Environment.TickCount64;
             });
         });
@@ -682,14 +717,110 @@ public partial class App : Application
         {
             if (_settingsWindow == null) return;
             _settingsWindow.SelectTab(tabIndex);
-            _settingsWindow.Show();
-            _settingsWindow.Topmost = false;
-            _settingsWindow.Topmost = true;
-            _settingsWindow.Activate();
+            SurfaceWindow(_settingsWindow);
         });
     }
 
-    private static WindowIcon CreateAppIcon()
+    private static void SurfaceWindow(Window window)
+    {
+        if (window.WindowState == WindowState.Minimized)
+        {
+            window.WindowState = WindowState.Normal;
+        }
+        bool wasTopmost = window.Topmost;
+        window.Show();
+        window.Topmost = false;
+        window.Topmost = true;
+        if (!wasTopmost)
+        {
+            window.Topmost = false;
+        }
+        window.Activate();
+    }
+
+    private void OnIpcCommandReceived(string wireCommand)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            switch (wireCommand)
+            {
+                case "show-launcher":
+                    if (_mainWindow != null && !_mainWindow.IsVisible)
+                    {
+                        ToggleMainWindow(bypassThrottle: true);
+                    }
+                    else if (_mainWindow != null)
+                    {
+                        SurfaceWindow(_mainWindow);
+                        _mainWindow.FocusSearchInput();
+                    }
+                    break;
+                case "toggle-launcher":
+                    ToggleMainWindow(bypassThrottle: true);
+                    break;
+                case "toggle-clipboard":
+                    ToggleClipboardWindow(bypassThrottle: true);
+                    break;
+                case "toggle-superpanel":
+                    if (_superPanelWindow != null && _superPanelWindow.IsVisible)
+                    {
+                        _superPanelWindow.Hide();
+                    }
+                    else
+                    {
+                        ShowSuperPanel(bypassThrottle: true);
+                    }
+                    break;
+                case "open-settings":
+                    ShowSettings(bypassThrottle: true);
+                    break;
+                case "autostart":
+                    break;
+                case "exit":
+                    ShutdownGracefully();
+                    break;
+            }
+        });
+    }
+
+    private void ShutdownGracefully()
+    {
+        IsShuttingDown = true;
+
+        try
+        {
+            _ipcCts?.Cancel();
+        }
+        catch
+        {
+            // Ignore cancellation race during exit
+        }
+
+        DesktopAppContext.Instance.Dispose();
+        SingleInstanceCoordinator.Release();
+        _desktop?.Shutdown();
+    }
+
+    private static WindowIcon CreateAppIcon() =>
+        LoadWindowIcon("avares://Pankin.Desktop/Assets/pankin-logo.png");
+
+    private static WindowIcon CreateTrayIcon(WindowIcon fallback) =>
+        LoadWindowIcon("avares://Pankin.Desktop/Assets/pankin-tray.png", fallback);
+
+    private static WindowIcon LoadWindowIcon(string assetUri, WindowIcon? fallback = null)
+    {
+        try
+        {
+            using var stream = AssetLoader.Open(new Uri(assetUri));
+            return new WindowIcon(stream);
+        }
+        catch
+        {
+            return fallback ?? CreateFallbackAppIcon();
+        }
+    }
+
+    private static WindowIcon CreateFallbackAppIcon()
     {
         var pixelSize = new PixelSize(32, 32);
         var dpi = new Vector(96, 96);

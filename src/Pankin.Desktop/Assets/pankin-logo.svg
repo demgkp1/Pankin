@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <!-- Obsidian-Indigo Squircle Background -->
+    <linearGradient id="bgBase" x1="20" y1="20" x2="236" y2="236" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#141526"/>
+      <stop offset="52%" stop-color="#1B1D3B"/>
+      <stop offset="100%" stop-color="#3B369C"/>
+    </linearGradient>
+    <radialGradient id="brGlow" cx="82%" cy="82%" r="72%">
+      <stop offset="0%" stop-color="#6366F1" stop-opacity="0.88"/>
+      <stop offset="48%" stop-color="#4F46E5" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#141526" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sparkAura" cx="72%" cy="32%" r="28%">
+      <stop offset="0%" stop-color="#22D3EE" stop-opacity="0.34"/>
+      <stop offset="100%" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rimStroke" x1="24" y1="16" x2="232" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.45"/>
+      <stop offset="40%" stop-color="#A5B4FC" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#818CF8" stop-opacity="0.52"/>
+    </linearGradient>
+
+    <!-- Frosted Glass Pane Fills & Edges -->
+    <linearGradient id="backPaneFill" x1="68" y1="74" x2="174" y2="196" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.34"/>
+      <stop offset="60%" stop-color="#C7D2FE" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#A5B4FC" stop-opacity="0.26"/>
+    </linearGradient>
+    <linearGradient id="frontPaneFill" x1="82" y1="58" x2="188" y2="182" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.54"/>
+      <stop offset="55%" stop-color="#E0E7FF" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="#C7D2FE" stop-opacity="0.34"/>
+    </linearGradient>
+    <linearGradient id="paneEdge" x1="74" y1="60" x2="188" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.88"/>
+      <stop offset="55%" stop-color="#E0E7FF" stop-opacity="0.42"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.65"/>
+    </linearGradient>
+
+    <!-- Cyan-Violet AI Spark & Launch Pointer -->
+    <linearGradient id="sparkGrad" x1="164" y1="56" x2="202" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#67E8F9"/>
+      <stop offset="55%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+    <linearGradient id="pointerGrad" x1="150" y1="84" x2="174" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#A5F3FC"/>
+      <stop offset="100%" stop-color="#7B7CF8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle Container -->
+  <rect x="16" y="16" width="224" height="224" rx="54" fill="url(#bgBase)"/>
+  <rect x="16" y="16" width="224" height="224" rx="54" fill="url(#brGlow)"/>
+  <rect x="16" y="16" width="224" height="224" rx="54" fill="url(#sparkAura)"/>
+  <rect x="17.5" y="17.5" width="221" height="221" rx="52.5" fill="none" stroke="url(#rimStroke)" stroke-width="3"/>
+
+  <!-- Back Frosted-Glass "P" Pane (offset slightly down-left) -->
+  <path fill-rule="evenodd"
+        d="M 72 78 C 72 74.7 74.7 72 78 72 H 130 C 159 72 178 90 178 117 C 178 144 159 162 130 162 H 98 V 192 C 98 195.3 95.3 198 92 198 H 78 C 74.7 198 72 195.3 72 192 Z
+           M 98 95 V 139 H 128 C 143 139 152 130 152 117 C 152 104 143 95 128 95 Z"
+        fill="url(#backPaneFill)" stroke="#FFFFFF" stroke-opacity="0.48" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Front Frosted-Glass "P" Pane (offset slightly up-right) -->
+  <path fill-rule="evenodd"
+        d="M 88 64 C 88 60.7 90.7 58 94 58 H 146 C 175 58 194 76 194 103 C 194 130 175 148 146 148 H 114 V 178 C 114 181.3 111.3 184 108 184 H 94 C 90.7 184 88 181.3 88 178 Z
+           M 114 81 V 125 H 144 C 159 125 168 116 168 103 C 168 90 159 81 144 81 Z"
+        fill="url(#frontPaneFill)" stroke="url(#paneEdge)" stroke-width="2.4" stroke-linejoin="round"/>
+
+  <!-- Subtle diagonal glass fold highlight on lower stem -->
+  <path d="M 72 162 L 88 148 L 88 178 L 72 192 Z" fill="#FFFFFF" fill-opacity="0.16"/>
+
+  <!-- Mini launch pointer accent -->
+  <path d="M 156 91 L 173 86 L 167 103 L 163 96 Z" fill="url(#pointerGrad)"/>
+
+  <!-- 4-Point AI Spark -->
+  <path d="M 184 54 C 186.2 68.5 189.5 71.8 204 74 C 189.5 76.2 186.2 79.5 184 94 C 181.8 79.5 178.5 76.2 164 74 C 178.5 71.8 181.8 68.5 184 54 Z"
+        fill="url(#sparkGrad)"/>
+</svg>

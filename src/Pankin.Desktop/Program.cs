@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Media;
+using Pankin.Core.Modules.Hosting;
 using System;
 
 namespace Pankin.Desktop;
@@ -11,8 +12,29 @@ public sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        var command = LaunchArguments.Parse(args);
+        if (command == LaunchCommand.Invalid)
+        {
+            Console.Error.WriteLine("Usage: pankin [--show|--toggle|--clipboard|--superpanel|--settings|--autostart|--exit]");
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        if (!SingleInstanceCoordinator.Enter(command))
+        {
+            return;
+        }
+
+        App.SetStartupCommand(command);
         ConfigureLinuxFontEnvironment();
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        try
+        {
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+        finally
+        {
+            SingleInstanceCoordinator.Release();
+        }
     }
 
     public static AppBuilder BuildAvaloniaApp()

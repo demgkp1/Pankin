@@ -40,6 +40,15 @@ public partial class SuperPanelWindow : Window
 
         // 失焦/点击外部自动隐匿面板 (Hide-on-click-away)
         Deactivated += (_, _) => PanelWindowBehavior.HideAfterDeactivation(this);
+
+        Closing += (_, e) =>
+        {
+            if (!App.IsShuttingDown)
+            {
+                e.Cancel = true;
+                Hide();
+            }
+        };
     }
 
     public void ShowNearPointer(SelectionContext context, string mode = "translate")

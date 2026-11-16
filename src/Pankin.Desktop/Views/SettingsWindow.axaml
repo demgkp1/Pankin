@@ -102,16 +102,10 @@
                     <Grid RowDefinitions="Auto,*,Auto">
                         <!-- 顶部 Logo 与标题 -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="9" Margin="6,4,6,16">
-                            <Border Width="24" Height="24" CornerRadius="6" VerticalAlignment="Center">
-                                <Border.Background>
-                                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                                        <GradientStop Offset="0" Color="#9B8CFF" />
-                                        <GradientStop Offset="1" Color="#5B6CFF" />
-                                    </LinearGradientBrush>
-                                </Border.Background>
-                                <TextBlock Text="P" FontSize="12.5" FontWeight="Bold" Foreground="#FFFFFF"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
+                            <Image Source="avares://Pankin.Desktop/Assets/pankin-logo.png"
+                                   Width="28" Height="28"
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality" />
                             <TextBlock Text="Pankin 设置" Classes="h2" VerticalAlignment="Center" />
                         </StackPanel>
 
@@ -145,7 +139,7 @@
 
                         <!-- 底部版本信息 -->
                         <TextBlock Grid.Row="2"
-                                   Text="Pankin v0.3.2 (Ubuntu 24.04)"
+                                   Text="Pankin v0.5.0 (Ubuntu Linux)"
                                    Classes="caption"
                                    HorizontalAlignment="Center"
                                    Margin="0,8,0,0" />
@@ -956,17 +950,12 @@
                                 <Border Classes="module-card">
                                     <StackPanel Spacing="10">
                                         <StackPanel Orientation="Horizontal" Spacing="12">
-                                            <Border Width="40" Height="40" CornerRadius="10">
-                                                <Border.Background>
-                                                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                                                        <GradientStop Offset="0" Color="#9B8CFF" />
-                                                        <GradientStop Offset="1" Color="#5B6CFF" />
-                                                    </LinearGradientBrush>
-                                                </Border.Background>
-                                                <TextBlock Text="P" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
+                                            <Image Source="avares://Pankin.Desktop/Assets/pankin-logo.png"
+                                                   Width="44" Height="44"
+                                                   VerticalAlignment="Center"
+                                                   RenderOptions.BitmapInterpolationMode="HighQuality" />
                                             <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="Pankin for Ubuntu 24.04 (Linux 原生效率工具)" Classes="body" FontWeight="SemiBold" />
+                                                <TextBlock Text="Pankin for Ubuntu Linux (原生效率工具)" Classes="body" FontWeight="SemiBold" />
                                                 <TextBlock Text="基于 Avalonia UI + SharpHook + SQLite 重构" Classes="caption" Margin="0,2,0,0" />
                                             </StackPanel>
                                         </StackPanel>

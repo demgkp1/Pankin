@@ -1,165 +1,272 @@
-# Pankin ⚡
+<div align="center">
 
-<p align="center">
-  <strong>Native Modern Desktop Productivity Platform for Ubuntu & Linux</strong><br/>
-  专为 Ubuntu 24.04 LTS（GNOME Wayland / X11）深度定制的原生现代桌面效率平台
-</p>
+<img src="src/Pankin.Desktop/Assets/pankin-logo.png" width="112" alt="Pankin Logo" />
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Ubuntu-24.04%20LTS-E95420?style=flat-square&logo=ubuntu&logoColor=white" alt="Ubuntu 24.04" />
+# Pankin
+
+**Native Modern Desktop Productivity Platform for Linux**  
+专为 **Ubuntu 24.04 / 26.04 LTS** 与 **Wayland（GNOME / Niri）/ X11** 打造的原生现代桌面效率终端
+
+<p>
+  <img src="https://img.shields.io/badge/Ubuntu-24.04%20%7C%2026.04%20LTS-E95420?style=flat-square&logo=ubuntu&logoColor=white" alt="Ubuntu 24.04 / 26.04 LTS" />
   <img src="https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4?style=flat-square&logo=dotnet&logoColor=white" alt=".NET 8 / 10" />
-  <img src="https://img.shields.io/badge/Avalonia%20UI-11.1.3-8B8DFF?style=flat-square" alt="Avalonia UI" />
-  <img src="https://img.shields.io/badge/Version-0.4.1-blue?style=flat-square" alt="Version 0.4.1" />
-  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" />
+  <img src="https://img.shields.io/badge/Avalonia%20UI-11.1.3-7B7CF8?style=flat-square" alt="Avalonia UI 11.1.3" />
+  <img src="https://img.shields.io/badge/Wayland-GNOME%20%7C%20Niri%20%7C%20X11-22D3EE?style=flat-square" alt="Wayland / Niri / X11" />
+  <img src="https://img.shields.io/badge/Version-0.5.0-5B57E8?style=flat-square" alt="Version 0.5.0" />
+  <img src="https://img.shields.io/badge/License-MIT-10B981?style=flat-square" alt="MIT License" />
 </p>
 
----
+<p>
+  <a href="#-核心特性">核心特性</a> •
+  <a href="#-视觉设计">视觉设计</a> •
+  <a href="#-实机演示">实机演示</a> •
+  <a href="#-安装与运行">安装与运行</a> •
+  <a href="#-niri--wayland-常驻后台与快捷键">Niri / Wayland 指南</a> •
+  <a href="#-架构与本地构建">本地构建</a>
+</p>
 
-## 📖 Introduction / 项目介绍
+<br/>
 
-**Pankin** 是一款基于 **.NET 8** 与 **Avalonia 11** 构建的现代化 Linux 桌面生产力终端。采用原生自研的 **"Graphite Glass"（石墨毛玻璃）** 设计系统，提供流畅丝滑的高斯模糊质感与无缝的多端体验，完美兼容主流 GNOME Wayland 与 X11 会话。
+<img src="docs/images/hero-banner.jpg" width="880" alt="Pankin Graphite Glass Launcher Showcase" />
 
-集成了极速应用与全盘启动器、持久化剪贴板历史、全局鼠标手势、鼠标划词智能超级面板、AI 多轮流式对话与划词翻译、目录穿梭与批量文件重命名等全套生产力工具。
-
----
-
-## ✨ Core Features / 核心功能
-
-* 🚀 **极速启动器 (Fast Launcher)**
-  * **智能拼音索引**：支持汉字全拼与首字母模糊匹配（如输入 `wx` 极速命中 `微信`）。
-  * **活跃感知动态排序**：自学习使用频率与最近访问权重，高频应用一键直达。
-  * **固定磁贴 (Pinned Tiles)**：自定义主屏常驻应用磁贴，支持分类置顶与快速启动。
-  * **双擎文件秒搜 (Dual-Engine Search)**：无缝融合系统 `.desktop` 应用索引与 `plocate` 极速全盘文件检索。
-  * **即时算式与系统命令**：输入数学算式即时得出计算结果，内置关机/重启倒计时与终端集成。
-
-* 📋 **SQLite 剪贴板历史 (Clipboard History)**
-  * 高性能 SQLite 驱动的剪贴板历史管理，支持文本与富文本快照。
-  * 搜索、置顶、一键回车粘贴（兼容 Wayland 与 X11 主选区/剪贴板），杜绝 Dock 闪烁。
-
-* ✨ **划词智能超级面板 (Selection Super Panel)**
-  * **光标跟随交互**：文本选区后快捷唤出或划词触发，跟随鼠标位置动态定位。
-  * **AI 对话与翻译 (AI Stream & Translation)**：内置多轮流式大模型对话与一键划词翻译，实时解析选中文本。
-  * **快捷动作组**：划词直达搜索、网页直跳、字符统计与大小写转换。
-
-* 📁 **目录穿梭与批量重命名 (FolderJump & Batch Renamer)**
-  * **FolderJump**：快速穿梭常用项目目录，在终端或文件管理器中瞬时定位。
-  * **BatchRenamer**：强大的可视化批量重命名工具，支持正则替换、序号追加与前后缀插入。
-
-* 🎨 **"Graphite Glass" 设计系统**
-  * 沉浸式毛玻璃半透明效果与平滑圆角，支持深色 / 浅色模式自由切换。
-  * 强调色个性化定制，失焦自隐藏，低资源占用与极致流畅帧率。
+</div>
 
 ---
 
-## ⌨️ Default Hotkeys / 默认全局快捷键
+## 📖 项目介绍
 
-| 快捷键 (Hotkey) | 功能 (Action) | 说明 (Description) |
+**Pankin** 是一款基于 **.NET 8 / .NET 10** 与 **Avalonia 11** 构建的跨平台原生 Linux 桌面生产力工具。界面遵循自研的 **Graphite Glass（石墨毛玻璃）** 设计系统，将极速启动、持久化剪贴板、划词超级面板与流式 AI 助手整合于一体，兼顾低内存驻留与丝滑响应。
+
+---
+
+## ✨ 核心特性
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🚀 极速启动器 (Fast Launcher)</h3>
+      <ul>
+        <li><strong>智能拼音匹配</strong>：支持汉字全拼与首字母模糊检索（如输入 <code>wx</code> 瞬时命中 <code>微信</code>）。</li>
+        <li><strong>活跃感知排序</strong>：本地实时记录启动频次与切换时间，异步无阻塞刷新「最近使用」列表。</li>
+        <li><strong>固定磁贴</strong>：支持将高频应用与内置工具置顶为主屏磁贴。</li>
+        <li><strong>双擎全盘搜</strong>：融合 <code>.desktop</code> / <code>AppImage</code> 应用索引与 <code>plocate</code> 极速文件检索。</li>
+        <li><strong>算式与系统指令</strong>：即时计算数学表达式，内置关机 / 重启倒计时与终端命令历史。</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3>📋 剪贴板历史 (Clipboard History)</h3>
+      <ul>
+        <li><strong>SQLite 持久化</strong>：轻量可靠的本地历史存储，支持文本与富文本快照。</li>
+        <li><strong>检索与置顶</strong>：关键词即时过滤，支持常用片段置顶锁定。</li>
+        <li><strong>一键回贴</strong>：回车即可粘贴回当前焦点窗口，兼容 Wayland 与 X11。</li>
+        <li><strong>失焦自隐藏</strong>：焦点切换自动收起，保持桌面干净不打扰。</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>✨ 划词智能超级面板 (Super Panel)</h3>
+      <ul>
+        <li><strong>AI 流式对话</strong>：兼容 OpenAI / Anthropic 接口格式，支持多轮流式对话。</li>
+        <li><strong>一键划词翻译</strong>：选中文本后快速呼出，即时翻译并解释上下文。</li>
+        <li><strong>快捷动作组</strong>：集成网页直达搜索、字数统计与大小写转换等实用动作。</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3>📁 目录穿梭 & 批量重命名</h3>
+      <ul>
+        <li><strong>FolderJump</strong>：快速跳转高频工作目录，直达终端或文件管理器。</li>
+        <li><strong>BatchRenamer</strong>：可视化批量文件重命名，支持正则替换、序号递增与前后缀规则。</li>
+        <li><strong>多桌面环境适配</strong>：原生适配 GNOME Wayland、Niri、Sway、Hyprland 与 X11 会话。</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 🎨 视觉设计
+
+**Graphite Glass** 以深邃的黑曜石底色（`#17171B`）搭配电光靛紫（`#7B7CF8` / `#5B57E8`）与青色微光（`#22D3EE`），兼顾暗色/浅色主题与磨砂透明度调节。双层半透玻璃 **P** 徽标与启动器面板在桌面 Dock、系统托盘及高分屏下均保持清晰锐利的轮廓：
+
+<div align="center">
+  <img src="docs/images/brand-showcase.jpg" width="880" alt="Pankin Brand & Icon Showcase" />
+</div>
+
+---
+
+## 📸 实机演示
+
+以下截图均实拍自 **Ubuntu 26.04 LTS + Niri Wayland** 真实桌面环境（`Pankin v0.5.0`）：
+
+<table>
+  <tr>
+    <td align="center" width="50%" valign="top">
+      <strong>🚀 启动器主界面 (Fast Launcher)</strong><br/><br/>
+      <img src="docs/images/demo-launcher.png" alt="Pankin 启动器主界面" />
+    </td>
+    <td align="center" width="50%" valign="top">
+      <strong>📋 剪贴板历史 (Clipboard History)</strong><br/><br/>
+      <img src="docs/images/demo-clipboard.png" alt="Pankin 剪贴板历史" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2">
+      <strong>⚙️ 设置中心 (Settings Center)</strong><br/><br/>
+      <img src="docs/images/demo-settings.png" width="760" alt="Pankin 设置中心" />
+    </td>
+  </tr>
+</table>
+
+---
+
+## ⌨️ 默认全局快捷键
+
+| 快捷键 | 功能 | 说明 |
 | :--- | :--- | :--- |
-| <kbd>Ctrl</kbd> + <kbd>Space</kbd> | **唤出 / 隐藏 主启动器** | 极速应用启动、文件检索、算式计算 |
-| <kbd>Alt</kbd> + <kbd>V</kbd> | **唤出 剪贴板历史窗口** | 浏览历史复制记录，支持搜索与快捷回贴 |
-| <kbd>Alt</kbd> + <kbd>S</kbd> | **唤出 划词智能超级面板** | 跟随鼠标光标唤出，支持 AI 解读与翻译 |
-| <kbd>Alt</kbd> + <kbd>,</kbd> | **打开 系统设置中心** | 模块管理、界面外观、快捷键与 AI 配置 |
+| <kbd>Ctrl</kbd> + <kbd>Space</kbd> | **唤出 / 隐藏主启动器** | 应用启动、文件检索、算式计算与系统命令 |
+| <kbd>Alt</kbd> + <kbd>V</kbd> | **唤出剪贴板历史** | 搜索并回车回贴历史复制内容 |
+| <kbd>Alt</kbd> + <kbd>S</kbd> | **唤出划词超级面板** | 触发 AI 对话、划词翻译与快捷文本处理 |
+| <kbd>Alt</kbd> + <kbd>,</kbd> | **打开设置中心** | 模块开关、外观主题、热键与 AI 模型配置 |
 
-*(所有热键均可在「设置中心」中自定义)*
+> 在 X11 / GNOME Wayland 下热键由程序自动接管，且均可在「设置中心」自定义；在 Niri 等独立 Wayland 合成器下请参照下文配置绑定。
 
 ---
 
-## 📦 Installation & Usage / 安装与运行
+## 📦 安装与运行
 
-当前源码版本为 **0.4.1**。安装包以 GitHub Releases 中实际上传的版本为准；以下 0.4.1 文件名也可按下文打包步骤在本地生成。
+当前源码版本为 **0.5.0**，可前往 [GitHub Releases](https://github.com/demgkp1/Pankin/releases) 下载对应安装包，或按文末脚本本地打包。
 
-### 1. 系统依赖环境 (Prerequisites)
-
-以下工具与图标库用于完整功能（文件检索、Primary Selection 划词、命令行剪贴板后端、系统通知及 SVG 图标加载）。桌面端的文本剪贴板历史使用 Avalonia 原生剪贴板，不再要求安装 `xclip` 或 `wl-clipboard`：
+### 1. 系统依赖
 
 ```bash
 sudo apt update
 sudo apt install -y plocate xclip wl-clipboard libnotify-bin libgdk-pixbuf-2.0-0 librsvg2-common
 ```
 
-### 2. 方式 A：Debian 软件包安装 (.deb，推荐)
-
-准备已发布或本地构建的 `pankin_0.4.1_amd64.deb`：
+### 2. Debian 软件包安装（`.deb`，推荐）
 
 ```bash
-sudo apt install ./pankin_0.4.1_amd64.deb
+sudo apt install ./pankin_0.5.0_amd64.deb
 ```
 
-安装后即可在应用菜单中找到 **Pankin**，或在终端输入 `pankin` 启动。
+安装完成后即可在应用菜单启动 **Pankin**，或在终端直接运行 `pankin`。
 
-### 3. 方式 B：AppImage 免安装运行
-
-准备已发布或本地构建的 `Pankin-0.4.1-x86_64.AppImage`：
+### 3. AppImage 免安装运行
 
 ```bash
-chmod +x Pankin-0.4.1-x86_64.AppImage
-./Pankin-0.4.1-x86_64.AppImage
+chmod +x Pankin-0.5.0-x86_64.AppImage
+./Pankin-0.5.0-x86_64.AppImage
 ```
 
-- 建议将 AppImage 放在固定目录，例如 `~/app/` 或 `~/Applications/`。启动器同时扫描这些目录以及 `~/AppImages/`、下载目录、`~/.local/bin/`，可搜索没有 `.desktop` 文件的可执行 AppImage。
-- 首次运行新版时，已启用的自启动条目会自动重写为当前 AppImage 的持久路径。自启动使用 `--autostart`，登录后仅后台常驻，不自动弹出面板。移动文件后需要手动从新位置启动一次，以更新自启动路径。
-- 剪贴板历史会记录启动时已有的文本和之后的新复制；历史监听不能补回此前从未记录的内容。
-
-运行时修复与回归验证说明见 [Linux 运行时回归验证](docs/linux-runtime-regressions.md)。
+> **AppImage 使用建议**
+> - 推荐固定存放在 `~/app/` 或 `~/Applications/`；启动器会自动扫描 `~/AppImages/`、`~/Downloads/`、`~/.local/bin/` 中的可执行 AppImage。
+> - 开启「开机自启」后，新版路径会自动写入 `~/.config/autostart/pankin.desktop`（附加 `--autostart` 静默驻留参数）；移动 AppImage 位置后请从新路径启动一次以同步路径。
 
 ---
 
-## 🛠️ Architecture & Development / 架构与本地构建
+## 🪟 Niri / Wayland 常驻后台与快捷键
 
-Pankin 遵循严格的三层解耦架构设计，解除了对 Windows 专有 API 的一切依赖：
+在 **Niri** 等独立 Wayland 合成器中，受限于 Wayland 按键安全隔离，建议由合成器负责开机后台拉起与全局快捷键触发。Pankin 已内置完整的**单实例跨进程通信**与**本地 UDP 快速唤起端口**。
 
-```
-Pankin.sln
-├── src/Pankin.Core             # 跨平台核心业务层 (.NET 8 ClassLib)
-├── src/Pankin.Platform.Linux   # Linux/Ubuntu 系统级适配层 (.NET 8 ClassLib, SharpHook/plocate/XDG)
-├── src/Pankin.Desktop          # Avalonia 11 UI 桌面前端 (MVVM, Graphite Glass)
-└── tests/Pankin.Core.Tests     # 核心业务单元测试工程 (xUnit, 349+ Tests)
-```
+### 1. 后台常驻启动
 
-### 本地构建要求
-
-* **OS**: Ubuntu 22.04 / 24.04 / 26.04 LTS (或主流 x86_64 Linux 发行版)
-* **SDK**: [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) 或 [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)（兼容 Ubuntu 24.04 / 26.04）
-
-### 编译与测试命令
+使用 `--autostart` 参数启动后，Pankin 会静默驻留后台与系统托盘（不主动弹出主面板）：
 
 ```bash
-# 1. 克隆代码库
+# .deb 安装版
+pankin --autostart
+
+# AppImage 免安装版
+/path/to/Pankin-0.5.0-x86_64.AppImage --autostart
+```
+
+在 `~/.config/niri/config.kdl` 中添加开机自启：
+
+```kdl
+spawn-at-startup "pankin" "--autostart"
+```
+
+### 2. Niri 快捷键绑定 (`~/.config/niri/config.kdl`)
+
+> **自动同步提示**：启动 Pankin 或在「设置中心」修改全局快捷键后，Pankin 会自动向 `~/.config/niri/config.kdl` 同步写入并更新 `// BEGIN PANKIN SHORTCUTS` 区块，随后自动重载 Niri 配置，无需每次手动调整。
+
+如需手动查看或配置，可在 `binds { ... }` 中任选以下一种方式绑定快捷键：
+
+```kdl
+binds {
+    // 方式 A：CLI 单实例唤起（推荐，即使后台尚未启动也会自动拉起 Pankin，与默认设置热键一致）
+    Ctrl+Space { spawn "pankin" "--toggle"; }
+    Alt+V { spawn "pankin" "--clipboard"; }
+    Alt+S { spawn "pankin" "--superpanel"; }
+    Alt+Comma { spawn "pankin" "--settings"; }
+
+    // 方式 B：直连内置后台 UDP 端口（零进程启动延迟，需 Pankin 已在后台常驻）
+    // Ctrl+Space { spawn "bash" "-c" "printf 'ToggleLauncher' > /dev/udp/127.0.0.1/49182"; }
+}
+```
+
+### 3. CLI 控制参数一览
+
+| 参数 | 功能说明 |
+| :--- | :--- |
+| `--autostart` | 静默启动并常驻后台，不自动弹出主面板 |
+| `--toggle` | 切换显示 / 隐藏主启动器（未启动时自动拉起） |
+| `--show` | 唤出并聚焦主启动器 |
+| `--clipboard` | 切换剪贴板历史窗口 |
+| `--superpanel` | 唤出智能超级面板 |
+| `--settings` | 打开系统设置中心 |
+| `--exit` | 优雅退出后台常驻实例 |
+
+---
+
+## 🛠️ 架构与本地构建
+
+Pankin 采用严格的三层解耦架构，全部基于跨平台 .NET 与 Linux 原生接口实现：
+
+```text
+Pankin.sln
+├── src/Pankin.Core                  # 跨平台核心业务（启动检索、拼音匹配、AI 流式对话、SQLite 剪贴板、单实例 IPC）
+├── src/Pankin.Platform.Linux        # Linux 系统适配（XDG 扫描、plocate、Wayland/X11 剪贴板、Niri/Sway/Hyprland/X11 窗口探测）
+├── src/Pankin.Desktop               # Avalonia 11 UI 桌面端（Graphite Glass 视觉系统、托盘常驻）
+├── tests/Pankin.Core.Tests          # 核心业务单元测试（379 Tests）
+├── tests/Pankin.Linux.Tests         # Linux 平台回归测试（75 Tests）
+└── tests/Pankin.Launcher.Verification # GUI 与图标渲染集成验证
+```
+
+### 环境要求
+
+* **操作系统**：Ubuntu 22.04 / 24.04 / 26.04 LTS（或主流 `x86_64` Linux 发行版）
+* **.NET SDK**：[.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) 或 [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)（通过 `Directory.Build.props` 自动适配）
+
+### 构建、测试与打包
+
+```bash
+# 1. 克隆仓库
 git clone https://github.com/demgkp1/Pankin.git
 cd Pankin
 
-# 2. 构建整套解决方案 (0 Warning, 0 Error)
+# 2. 构建与测试
 dotnet build Pankin.sln
-
-# 3. 运行全量单元测试
 dotnet test Pankin.sln
 
-# 4. 本地启动桌面应用
+# 3. 本地运行桌面端
 dotnet run --project src/Pankin.Desktop
-```
 
-### 自动化打包 (.deb & .AppImage)
-
-执行项目根目录下的自动化打包脚本，即可一键生成自包含 Release 安装包：
-
-```bash
+# 4. 一键打包自包含 .deb 与 .AppImage
 bash scripts/package-linux.sh
 ```
 
-生成的安装包将存放在 `artifacts/` 目录下：
-* `artifacts/pankin_0.4.1_amd64.deb`
-* `artifacts/Pankin-0.4.1-x86_64.AppImage`
-* `artifacts/SHA256SUMS.txt`（AppImage/deb 校验文件，发布时一并上传）
-* `artifacts/pankin.svg`
+打包产物将输出至 `artifacts/` 目录：
+* `artifacts/pankin_0.5.0_amd64.deb`
+* `artifacts/Pankin-0.5.0-x86_64.AppImage`
+* `artifacts/SHA256SUMS.txt`
+* `artifacts/pankin.svg` / `artifacts/pankin.png`
 
-### 推送 GitHub 与发布 0.4.1
-
-代码推送不会自动上传安装包。请先提交改动并推送 `main` 和 `v0.4.1` 标签，再在 GitHub 新建正式 Release，上传上述两个安装包及 `SHA256SUMS.txt`，并设置为 Latest；保留旧的 `v0.3.0` 和 `v0.3.1` Release。
-
-详细操作见 [GitHub 发布指南](docs/github-release.md)，本次可直接使用的发布说明见 [0.4.1 发布说明](docs/releases/v0.4.1.md)。
+> 更多运行时与打包说明请参阅 [Linux 运行时回归验证](docs/linux-runtime-regressions.md) 与 [GitHub 发布指南](docs/github-release.md)。
 
 ---
 
 ## 📄 License
 
-本项目采用 [MIT License](LICENSE) 开源协议。
+本项目基于 [MIT License](LICENSE) 开源。

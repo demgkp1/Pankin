@@ -25,6 +25,7 @@ public sealed class LinuxInputHook : IGlobalInputHook
 
     private readonly IClipboardService _clipboardService;
     private readonly bool _ownsClipboardService;
+    private readonly NiriShortcutSync _niriShortcutSync;
     private TaskPoolGlobalHook? _hook;
     private Task? _hookTask;
     private UdpClient? _udpServer;
@@ -59,7 +60,7 @@ public sealed class LinuxInputHook : IGlobalInputHook
     public event EventHandler<SelectionTriggeredEventArgs>? SelectionTriggered;
     public event EventHandler<GesturePoint>? GlobalPointerPressed;
 
-    public LinuxInputHook(IClipboardService? clipboardService = null)
+    public LinuxInputHook(IClipboardService? clipboardService = null, NiriShortcutSync? niriShortcutSync = null)
     {
         if (clipboardService != null)
         {
@@ -71,6 +72,8 @@ public sealed class LinuxInputHook : IGlobalInputHook
             _clipboardService = new LinuxClipboardService();
             _ownsClipboardService = true;
         }
+
+        _niriShortcutSync = niriShortcutSync ?? new NiriShortcutSync();
 
         UpdateHotkeys("Ctrl+Space", "Alt+V", "Alt+S");
     }
@@ -101,7 +104,7 @@ public sealed class LinuxInputHook : IGlobalInputHook
 
         if (_isRunning)
         {
-            _ = Task.Run(RegisterGnomeWaylandShortcuts);
+            _ = Task.Run(RegisterSystemShortcuts);
         }
     }
 
@@ -210,7 +213,7 @@ public sealed class LinuxInputHook : IGlobalInputHook
                 }
             }, token);
 
-            _ = Task.Run(RegisterGnomeWaylandShortcuts);
+            _ = Task.Run(RegisterSystemShortcuts);
         }
         catch (Exception ex)
         {
@@ -241,74 +244,88 @@ public sealed class LinuxInputHook : IGlobalInputHook
         }
     }
 
-    private void RegisterGnomeWaylandShortcuts()
+    private void RegisterSystemShortcuts()
     {
         lock (_gnomeRegLock)
         {
             try
             {
-                var desktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "";
-                if (!desktop.Contains("GNOME", StringComparison.OrdinalIgnoreCase) &&
-                    !desktop.Contains("ubuntu", StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-
-                var launcherBinding = _parsedLauncherHotkey?.GnomeBinding ?? "<Control>space";
-                var clipboardBinding = _parsedClipboardHotkey?.GnomeBinding ?? "<Alt>v";
-                var superPanelBinding = _parsedSuperPanelHotkey?.GnomeBinding ?? "<Alt>s";
-
-                var existing = RunGsettings("get org.gnome.settings-daemon.plugins.media-keys custom-keybindings") ?? "[]";
-                var slots = new (string Path, string Name, string Cmd, string Key)[]
-                {
-                    ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-launcher/", "Pankin Launcher", "ToggleLauncher", launcherBinding),
-                    ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-clipboard/", "Pankin Clipboard", "ToggleClipboard", clipboardBinding),
-                    ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-super/", "Pankin SuperPanel", "ToggleSuperPanel", superPanelBinding),
-                    ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-settings/", "Pankin Settings", "OpenSettings", "<Alt>comma")
-                };
-                var validPaths = slots.Select(s => s.Path).ToHashSet(StringComparer.Ordinal);
-
-                var pathsList = new List<string>();
-                var matches = System.Text.RegularExpressions.Regex.Matches(existing, @"'([^']+)'");
-                foreach (System.Text.RegularExpressions.Match m in matches)
-                {
-                    var p = m.Groups[1].Value;
-                    if (string.IsNullOrWhiteSpace(p)) continue;
-
-                    // 清理旧版本遗留或多余的 pankin 快捷键条目（如曾用的 pankin-clipboard2），避免抢占系统与终端快捷键
-                    if (p.Contains("/pankin-", StringComparison.OrdinalIgnoreCase) && !validPaths.Contains(p))
-                    {
-                        RunGsettings($"reset-recursively org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{p}");
-                        continue;
-                    }
-
-                    if (!pathsList.Contains(p))
-                    {
-                        pathsList.Add(p);
-                    }
-                }
-
-                foreach (var slot in slots)
-                {
-                    if (!pathsList.Contains(slot.Path))
-                    {
-                        pathsList.Add(slot.Path);
-                    }
-                }
-
-                var arrayLiteral = "[" + string.Join(", ", pathsList.Select(p => $"'{p}'")) + "]";
-                RunGsettings($"set org.gnome.settings-daemon.plugins.media-keys custom-keybindings \"{arrayLiteral}\"");
-
-                foreach (var slot in slots)
-                {
-                    var udpCmd = $"/bin/bash -c \"printf '%s' '{slot.Cmd}' > /dev/udp/127.0.0.1/{IpcUdpPort}\"";
-                    ConfigureSingleGnomeShortcut(slot.Path, slot.Name, udpCmd, slot.Key);
-                }
+                _niriShortcutSync.Sync(_rawLauncherHotkey, _rawClipboardHotkey, _rawSuperPanelHotkey);
             }
             catch
             {
                 // Ignore
             }
+
+            RegisterGnomeWaylandShortcuts();
+        }
+    }
+
+    private void RegisterGnomeWaylandShortcuts()
+    {
+        try
+        {
+            var desktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") ?? "";
+            if (!desktop.Contains("GNOME", StringComparison.OrdinalIgnoreCase) &&
+                !desktop.Contains("ubuntu", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var launcherBinding = _parsedLauncherHotkey?.GnomeBinding ?? "<Control>space";
+            var clipboardBinding = _parsedClipboardHotkey?.GnomeBinding ?? "<Alt>v";
+            var superPanelBinding = _parsedSuperPanelHotkey?.GnomeBinding ?? "<Alt>s";
+
+            var existing = RunGsettings("get org.gnome.settings-daemon.plugins.media-keys custom-keybindings") ?? "[]";
+            var slots = new (string Path, string Name, string Cmd, string Key)[]
+            {
+                ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-launcher/", "Pankin Launcher", "ToggleLauncher", launcherBinding),
+                ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-clipboard/", "Pankin Clipboard", "ToggleClipboard", clipboardBinding),
+                ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-super/", "Pankin SuperPanel", "ToggleSuperPanel", superPanelBinding),
+                ("/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/pankin-settings/", "Pankin Settings", "OpenSettings", "<Alt>comma")
+            };
+            var validPaths = slots.Select(s => s.Path).ToHashSet(StringComparer.Ordinal);
+
+            var pathsList = new List<string>();
+            var matches = System.Text.RegularExpressions.Regex.Matches(existing, @"'([^']+)'");
+            foreach (System.Text.RegularExpressions.Match m in matches)
+            {
+                var p = m.Groups[1].Value;
+                if (string.IsNullOrWhiteSpace(p)) continue;
+
+                // 清理旧版本遗留或多余的 pankin 快捷键条目（如曾用的 pankin-clipboard2），避免抢占系统与终端快捷键
+                if (p.Contains("/pankin-", StringComparison.OrdinalIgnoreCase) && !validPaths.Contains(p))
+                {
+                    RunGsettings($"reset-recursively org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:{p}");
+                    continue;
+                }
+
+                if (!pathsList.Contains(p))
+                {
+                    pathsList.Add(p);
+                }
+            }
+
+            foreach (var slot in slots)
+            {
+                if (!pathsList.Contains(slot.Path))
+                {
+                    pathsList.Add(slot.Path);
+                }
+            }
+
+            var arrayLiteral = "[" + string.Join(", ", pathsList.Select(p => $"'{p}'")) + "]";
+            RunGsettings($"set org.gnome.settings-daemon.plugins.media-keys custom-keybindings \"{arrayLiteral}\"");
+
+            foreach (var slot in slots)
+            {
+                var udpCmd = $"/bin/bash -c \"printf '%s' '{slot.Cmd}' > /dev/udp/127.0.0.1/{IpcUdpPort}\"";
+                ConfigureSingleGnomeShortcut(slot.Path, slot.Name, udpCmd, slot.Key);
+            }
+        }
+        catch
+        {
+            // Ignore
         }
     }
 
@@ -632,7 +649,7 @@ public sealed class LinuxInputHook : IGlobalInputHook
             "tab" => (KeyCode.VcTab, "Tab"),
             "enter" or "return" => (KeyCode.VcEnter, "Return"),
             "esc" or "escape" => (KeyCode.VcEscape, "Escape"),
-            "backspace" => (KeyCode.VcBackspace, "BackSpace"),
+            "backspace" or "back" => (KeyCode.VcBackspace, "BackSpace"),
             _ => MapAlphaNumericOrFunction(part)
         };
     }
@@ -655,6 +672,15 @@ public sealed class LinuxInputHook : IGlobalInputHook
             if (Enum.TryParse<KeyCode>("Vc" + part, out var dKey))
             {
                 return (dKey, part);
+            }
+        }
+
+        if (part.Length == 2 && (part[0] is 'D' or 'd') && char.IsAsciiDigit(part[1]))
+        {
+            var digit = part[1..2];
+            if (Enum.TryParse<KeyCode>("Vc" + digit, out var dKey))
+            {
+                return (dKey, digit);
             }
         }
 

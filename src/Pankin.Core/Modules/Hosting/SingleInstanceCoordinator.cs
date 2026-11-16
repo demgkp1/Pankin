@@ -1,139 +1,249 @@
 using System.Diagnostics;
-using System.IO.Pipes;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace Pankin.Core.Modules.Hosting;
 
 /// <summary>
-/// 跨平台单实例通信协调器：基于 NamedPipe (在 Linux 下底层自动映射为 Unix Domain Socket)，严禁 Windows P/Invoke
+/// 跨平台单实例通信协调器：基于 XDG_RUNTIME_DIR 独占文件锁与 Unix Domain Socket，
+/// 确保在 Niri / Wayland / AppImage / 多终端会话间稳定唯一实例与快速唤醒，严禁 Windows P/Invoke。
 /// </summary>
 public static class SingleInstanceCoordinator
 {
-    private static Mutex? _mutex;
-    private static readonly string PipeName = "Pankin-" + Convert.ToHexString(
+    private static readonly object SyncRoot = new();
+    private static FileStream? _lockStream;
+
+    private static readonly string InstanceId = "Pankin-" + Convert.ToHexString(
         SHA256.HashData(Encoding.UTF8.GetBytes(
             Environment.UserName + "|" +
             (RuntimeMode.Current.IsProduction ? "prod" : "dev") + "|" +
             (Environment.GetEnvironmentVariable("PANKIN_INSTANCE") ?? "default"))))[..24];
 
+    private static string RuntimeDirectory
+    {
+        get
+        {
+            var xdgRuntime = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
+            if (!string.IsNullOrWhiteSpace(xdgRuntime) && Directory.Exists(xdgRuntime))
+            {
+                return xdgRuntime;
+            }
+            return Path.GetTempPath();
+        }
+    }
+
+    private static string LockFilePath => Path.Combine(RuntimeDirectory, InstanceId + ".lock");
+    private static string SocketFilePath => Path.Combine(RuntimeDirectory, InstanceId + ".sock");
+
+    public static string ToWireCommand(LaunchCommand command) => command switch
+    {
+        LaunchCommand.Exit => "exit",
+        LaunchCommand.Toggle => "toggle-launcher",
+        LaunchCommand.Clipboard => "toggle-clipboard",
+        LaunchCommand.SuperPanel => "toggle-superpanel",
+        LaunchCommand.Settings => "open-settings",
+        LaunchCommand.Autostart => "autostart",
+        _ => "show-launcher"
+    };
+
     public static bool Enter(LaunchCommand command)
     {
-        try
+        if (command == LaunchCommand.Invalid)
         {
-            _mutex = new Mutex(true, "Local\\" + PipeName, out bool isFirstInstance);
-            if (isFirstInstance)
+            return false;
+        }
+
+        lock (SyncRoot)
+        {
+            if (_lockStream != null)
             {
-                if (command == LaunchCommand.Exit)
-                {
-                    Release();
-                    return false;
-                }
-                return true;
+                return command != LaunchCommand.Exit;
             }
 
-            if (command == LaunchCommand.Autostart)
-            {
-                Release();
-                return false;
-            }
-
-            // 存在已有实例，向主实例管道发送控制命令
             try
             {
-                using var pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut, PipeOptions.CurrentUserOnly);
-                pipe.Connect(3000);
-
-                using var writer = new StreamWriter(pipe, leaveOpen: true) { AutoFlush = true };
-                writer.WriteLine(command == LaunchCommand.Exit ? "exit" : "show-launcher");
+                var stream = new FileStream(LockFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                try
+                {
+                    stream.SetLength(0);
+                    var pidBytes = Encoding.UTF8.GetBytes(Environment.ProcessId.ToString());
+                    stream.Write(pidBytes, 0, pidBytes.Length);
+                    stream.Flush();
+                }
+                catch
+                {
+                    // PID 写入失败不影响文件锁持有
+                }
 
                 if (command == LaunchCommand.Exit)
                 {
-                    using var reader = new StreamReader(pipe, leaveOpen: true);
-                    var reply = reader.ReadLine();
-                    if (int.TryParse(reply, out int targetPid))
-                    {
-                        try
-                        {
-                            using var targetProcess = Process.GetProcessById(targetPid);
-                            targetProcess.WaitForExit(5000);
-                        }
-                        catch
-                        {
-                            // 进程已经退出
-                        }
-                    }
+                    stream.Dispose();
+                    return false;
                 }
+
+                _lockStream = stream;
+                TryDeleteSocketFile();
+                return true;
+            }
+            catch (IOException)
+            {
+                // 文件锁已被存活的主实例持有
             }
             catch
             {
-                // 通信超时或主实例异常
+                return true;
             }
-            finally
-            {
-                Release();
-            }
+        }
 
+        if (command == LaunchCommand.Autostart)
+        {
             return false;
         }
-        catch
+
+        ForwardCommandToPrimary(command);
+        return false;
+    }
+
+    private static void ForwardCommandToPrimary(LaunchCommand command)
+    {
+        var wireCommand = ToWireCommand(command);
+        for (int attempt = 0; attempt < 15; attempt++)
         {
-            return true;
+            try
+            {
+                if (!File.Exists(SocketFilePath))
+                {
+                    Thread.Sleep(50);
+                    continue;
+                }
+
+                using var client = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+                client.ReceiveTimeout = 3000;
+                client.SendTimeout = 3000;
+                client.Connect(new UnixDomainSocketEndPoint(SocketFilePath));
+
+                using var networkStream = new NetworkStream(client, ownsSocket: false);
+                using var writer = new StreamWriter(networkStream, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
+                writer.WriteLine(wireCommand);
+
+                using var reader = new StreamReader(networkStream, Encoding.UTF8, leaveOpen: true);
+                var reply = reader.ReadLine();
+                if (command == LaunchCommand.Exit && int.TryParse(reply, out int targetPid))
+                {
+                    try
+                    {
+                        using var targetProcess = Process.GetProcessById(targetPid);
+                        targetProcess.WaitForExit(5000);
+                    }
+                    catch
+                    {
+                        // 进程已经退出
+                    }
+                }
+                return;
+            }
+            catch
+            {
+                Thread.Sleep(60);
+            }
         }
     }
 
     public static async Task ListenAsync(Action<string> commandHandler, CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        TryDeleteSocketFile();
+        Socket? server = null;
+        try
         {
-            try
+            server = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            server.Bind(new UnixDomainSocketEndPoint(SocketFilePath));
+            server.Listen(16);
+
+            while (!cancellationToken.IsCancellationRequested)
             {
-                using var pipe = new NamedPipeServerStream(
-                    PipeName,
-                    PipeDirection.InOut,
-                    1,
-                    PipeTransmissionMode.Byte,
-                    PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-
-                await pipe.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
-
-                using var reader = new StreamReader(pipe, leaveOpen: true);
-                var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-
-                if (line == "exit")
+                Socket? client = null;
+                try
                 {
-                    using var writer = new StreamWriter(pipe, leaveOpen: true) { AutoFlush = true };
-                    await writer.WriteLineAsync(Environment.ProcessId.ToString()).ConfigureAwait(false);
-                }
+                    client = await server.AcceptAsync(cancellationToken).ConfigureAwait(false);
+                    using var stream = new NetworkStream(client, ownsSocket: true);
+                    using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+                    var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
 
-                if (!string.IsNullOrEmpty(line))
+                    using var writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
+                    if (line == "exit")
+                    {
+                        await writer.WriteLineAsync(Environment.ProcessId.ToString()).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await writer.WriteLineAsync("ok").ConfigureAwait(false);
+                    }
+
+                    if (!string.IsNullOrEmpty(line))
+                    {
+                        commandHandler(line);
+                    }
+                }
+                catch (OperationCanceledException)
                 {
-                    commandHandler(line);
+                    client?.Dispose();
+                    break;
+                }
+                catch
+                {
+                    client?.Dispose();
+                    await Task.Delay(50, cancellationToken).ConfigureAwait(false);
                 }
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (IOException)
-            {
-                // 管道异常时短暂等待后重试
-                await Task.Delay(100, cancellationToken).ConfigureAwait(false);
-            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 正常取消
+        }
+        catch
+        {
+            // 容错处理
+        }
+        finally
+        {
+            server?.Dispose();
+            TryDeleteSocketFile();
         }
     }
 
     public static void Release()
     {
+        lock (SyncRoot)
+        {
+            if (_lockStream != null)
+            {
+                try
+                {
+                    _lockStream.Dispose();
+                }
+                catch { }
+                finally
+                {
+                    _lockStream = null;
+                }
+            }
+            TryDeleteSocketFile();
+        }
+    }
+
+    private static void TryDeleteSocketFile()
+    {
         try
         {
-            _mutex?.ReleaseMutex();
+            if (File.Exists(SocketFilePath))
+            {
+                File.Delete(SocketFilePath);
+            }
         }
-        catch { }
-        finally
+        catch
         {
-            _mutex?.Dispose();
-            _mutex = null;
+            // 忽略删除失败
         }
     }
 }

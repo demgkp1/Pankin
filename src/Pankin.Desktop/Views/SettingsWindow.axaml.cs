@@ -20,6 +20,15 @@ public partial class SettingsWindow : Window
 
         CloseButton.Click += (_, _) => Hide();
 
+        Closing += (_, e) =>
+        {
+            if (!App.IsShuttingDown)
+            {
+                e.Cancel = true;
+                Hide();
+            }
+        };
+
         KeyDown += (_, e) =>
         {
             if (DataContext is SettingsViewModel vm && !string.IsNullOrEmpty(vm.RecordingTarget))

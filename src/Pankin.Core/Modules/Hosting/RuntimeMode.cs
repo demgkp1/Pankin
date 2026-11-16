@@ -39,6 +39,10 @@ public sealed record RuntimeMode(bool IsProduction, string DataDirectory)
 public enum LaunchCommand
 {
     Show,
+    Toggle,
+    Clipboard,
+    SuperPanel,
+    Settings,
     Autostart,
     Exit,
     Invalid
@@ -46,15 +50,20 @@ public enum LaunchCommand
 
 public static class LaunchArguments
 {
-    public static LaunchCommand Parse(string[] args)
+    public static LaunchCommand Parse(string[]? args)
     {
-        if (args.Length == 0) return LaunchCommand.Show;
+        if (args == null || args.Length == 0) return LaunchCommand.Show;
         if (args.Length != 1) return LaunchCommand.Invalid;
 
         return args[0] switch
         {
-            "--exit" => LaunchCommand.Exit,
+            "--show" => LaunchCommand.Show,
+            "--toggle" => LaunchCommand.Toggle,
+            "--clipboard" => LaunchCommand.Clipboard,
+            "--superpanel" => LaunchCommand.SuperPanel,
+            "--settings" => LaunchCommand.Settings,
             "--autostart" => LaunchCommand.Autostart,
+            "--exit" => LaunchCommand.Exit,
             _ => LaunchCommand.Invalid
         };
     }
