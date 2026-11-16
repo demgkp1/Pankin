@@ -82,7 +82,7 @@ graph TD
 ## 三、技术栈与依赖清单
 
 ### 3.1 基础运行时与语言标准
-* **.NET SDK**：`net8.0` (LTS，当前运行环境为 .NET MSBuild 17.8.60 on Linux x64)
+* **.NET SDK**：目标框架 `net8.0` (LTS)，兼容 .NET 8.0 SDK 与 .NET 10.0 SDK（如 Ubuntu 24.04 / 26.04 LTS 环境）
 * **C# 语言特性**：C# 12（启用全局隐式引用 `ImplicitUsings=enable`，严格空安全检查 `Nullable=enable`，支持 Primary Constructors、集合表达式 `[]` 与模式匹配）。
 
 ### 3.2 NuGet 依赖库矩阵

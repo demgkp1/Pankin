@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <!--
+      Support both .NET 8 SDK (e.g. Ubuntu 24.04 / CI) and .NET 10 SDK (e.g. Ubuntu 26.04).
+      Selects net10.0 automatically when built with .NET 10+ SDK, otherwise falls back to net8.0.
+      Can be overridden explicitly via -p:TargetFramework=net8.0 (or net10.0).
+    -->
+    <TargetFramework Condition="'$(TargetFramework)' == '' and '$(MSBuildVersion)' != '' and $([MSBuild]::VersionGreaterThanOrEquals('$(MSBuildVersion)', '18.0'))">net10.0</TargetFramework>
+    <TargetFramework Condition="'$(TargetFramework)' == ''">net8.0</TargetFramework>
+  </PropertyGroup>
+</Project>
