@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using Pankin.Core.Updates;
 using Xunit;
@@ -176,5 +177,105 @@ public class UpdateServiceTests
         string longText = new('a', 2500);
         string limited = UpdateService.PlainNotes(longText);
         Assert.Equal(2000, limited.Length);
+    }
+
+    private sealed class RoutingHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(responder(request));
+    }
+
+    [Fact]
+    public async Task DownloadAsync_WhenAppImageAsset_ShouldSetExecutablePermissionsOnUnix()
+    {
+        byte[] payload = Encoding.UTF8.GetBytes("#!/bin/sh\necho pankin-appimage\n");
+        string sha256 = Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant();
+        const string assetName = "Pankin-0.1.100-x86_64.AppImage";
+
+        var releaseJson = $$"""
+            {
+              "tag_name": "v0.1.100",
+              "draft": false,
+              "prerelease": false,
+              "body": "AppImage release",
+              "published_at": "2026-11-07T12:00:00Z",
+              "html_url": "https://github.com/demgkp1/Pankin/releases/tag/v0.1.100",
+              "assets": [
+                {
+                  "name": "{{assetName}}",
+                  "size": {{payload.Length}},
+                  "browser_download_url": "https://github.com/demgkp1/Pankin/releases/download/v0.1.100/{{assetName}}"
+                },
+                {
+                  "name": "SHA256SUMS.txt",
+                  "size": 128,
+                  "browser_download_url": "https://github.com/demgkp1/Pankin/releases/download/v0.1.100/SHA256SUMS.txt"
+                }
+              ]
+            }
+            """;
+
+        using var handler = new RoutingHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri?.AbsoluteUri ?? "";
+            if (url.EndsWith("/releases/latest", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(releaseJson, Encoding.UTF8, "application/json")
+                };
+            }
+
+            if (url.EndsWith("/SHA256SUMS.txt", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent($"{sha256}  {assetName}\n", Encoding.UTF8, "text/plain")
+                };
+            }
+
+            if (url.EndsWith($"/{assetName}", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(payload)
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        string tempDir = Path.Combine(Path.GetTempPath(), "pankin-update-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            using var service = new UpdateService(
+                currentVersion: "0.1.99",
+                dataDirectory: tempDir,
+                handler: handler);
+
+            await service.CheckAsync();
+            Assert.Equal(UpdateState.Available, service.State);
+
+            await service.DownloadAsync();
+            Assert.Equal(UpdateState.Ready, service.State);
+
+            string downloadedPath = Path.Combine(tempDir, "updates", assetName);
+            Assert.True(File.Exists(downloadedPath));
+
+            if (!OperatingSystem.IsWindows())
+            {
+                var mode = File.GetUnixFileMode(downloadedPath);
+                Assert.True(mode.HasFlag(UnixFileMode.UserExecute));
+            }
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, recursive: true);
+            }
+            catch { }
+        }
     }
 }

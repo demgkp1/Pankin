@@ -12,27 +12,45 @@ public sealed class LinuxAutostartService : IAutostartService
 {
     private const string DesktopFileName = "pankin.desktop";
     private readonly string _autostartFilePath;
+    private readonly string _applicationDesktopFilePath;
     private readonly Func<IReadOnlyList<string>> _launchCommandProvider;
 
-    public LinuxAutostartService(string? customAutostartDir = null, Func<IReadOnlyList<string>>? launchCommandProvider = null)
+    public LinuxAutostartService(
+        string? customAutostartDir = null,
+        Func<IReadOnlyList<string>>? launchCommandProvider = null,
+        string? customApplicationsDir = null)
     {
         _launchCommandProvider = launchCommandProvider ?? ResolveLaunchCommand;
-        string autostartDir;
-        if (!string.IsNullOrWhiteSpace(customAutostartDir))
+        _autostartFilePath = ResolveXdgDesktopFilePath(customAutostartDir, "XDG_CONFIG_HOME", ".config", "autostart");
+        _applicationDesktopFilePath = ResolveXdgDesktopFilePath(
+            customApplicationsDir,
+            "XDG_DATA_HOME",
+            Path.Combine(".local", "share"),
+            "applications");
+    }
+
+    private static string ResolveXdgDesktopFilePath(
+        string? customDir,
+        string xdgEnvVar,
+        string defaultBaseRelative,
+        string subDir)
+    {
+        string dir;
+        if (!string.IsNullOrWhiteSpace(customDir))
         {
-            autostartDir = customAutostartDir;
+            dir = customDir;
         }
         else
         {
-            var configHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-            if (string.IsNullOrWhiteSpace(configHome))
+            var xdgBase = Environment.GetEnvironmentVariable(xdgEnvVar);
+            if (string.IsNullOrWhiteSpace(xdgBase))
             {
-                configHome = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
+                xdgBase = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), defaultBaseRelative);
             }
-            autostartDir = Path.Combine(configHome, "autostart");
+            dir = Path.Combine(xdgBase, subDir);
         }
 
-        _autostartFilePath = Path.Combine(autostartDir, DesktopFileName);
+        return Path.Combine(dir, DesktopFileName);
     }
 
     public bool IsAutostartEnabled
@@ -79,26 +97,69 @@ public sealed class LinuxAutostartService : IAutostartService
         return quoted.Replace("\\", "\\\\");
     }
 
+    private static string BuildExecValue(IReadOnlyList<string> command, string flag)
+    {
+        // GLib checks the first executable token before expanding %% field codes.
+        // For a literal % in the filename, make env the executable and the image an argument.
+        var arguments = command[0].Contains('%')
+            ? new[] { "/usr/bin/env", "--" }.Concat(command)
+            : command;
+        return string.Join(" ", arguments.Select(QuoteExecArgument)) + " " + flag;
+    }
+
+    private static void WriteDesktopFileIfChanged(string path, string content)
+    {
+        var utf8NoBom = new UTF8Encoding(false);
+        var desiredBytes = utf8NoBom.GetBytes(content);
+        if (File.Exists(path) && File.ReadAllBytes(path).AsSpan().SequenceEqual(desiredBytes))
+        {
+            return;
+        }
+
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        // No UTF-8 BOM: the group header must be the first bytes in a desktop entry.
+        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllBytes(temporary, desiredBytes);
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
+
+    private static string ResolveApplicationIcon(string desktopFilePath, bool exists)
+    {
+        if (!exists) return "pankin";
+
+        var iconLine = File.ReadLines(desktopFilePath)
+            .FirstOrDefault(l => l.StartsWith("Icon=", StringComparison.Ordinal));
+        if (iconLine is null) return "pankin";
+
+        var existingIcon = iconLine["Icon=".Length..].Trim();
+        if (string.IsNullOrWhiteSpace(existingIcon)) return "pankin";
+
+        return !Path.IsPathRooted(existingIcon) || File.Exists(existingIcon)
+            ? existingIcon
+            : "pankin";
+    }
+
     public void SetAutostart(bool enabled)
     {
         try
         {
             if (enabled)
             {
-                var dir = Path.GetDirectoryName(_autostartFilePath);
-                if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
-                {
-                    Directory.CreateDirectory(dir);
-                }
-
                 var command = _launchCommandProvider();
                 if (command.Count == 0) throw new InvalidOperationException("Empty autostart command");
-                // GLib checks the first executable token before expanding %% field codes.
-                // For a literal % in the filename, make env the executable and the image an argument.
-                var arguments = command[0].Contains('%')
-                    ? new[] { "/usr/bin/env", "--" }.Concat(command)
-                    : command;
-                var exec = string.Join(" ", arguments.Select(QuoteExecArgument)) + " --autostart";
+                var exec = BuildExecValue(command, "--autostart");
 
                 var content = new StringBuilder()
                     .AppendLine("[Desktop Entry]")
@@ -112,14 +173,7 @@ public sealed class LinuxAutostartService : IAutostartService
                     .AppendLine("X-GNOME-Autostart-enabled=true")
                     .ToString();
 
-                // No UTF-8 BOM: the group header must be the first bytes in a desktop entry.
-                var temporary = _autostartFilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
-                try
-                {
-                    File.WriteAllText(temporary, content, new UTF8Encoding(false));
-                    File.Move(temporary, _autostartFilePath, overwrite: true);
-                }
-                finally { if (File.Exists(temporary)) File.Delete(temporary); }
+                WriteDesktopFileIfChanged(_autostartFilePath, content);
             }
             else
             {
@@ -132,6 +186,48 @@ public sealed class LinuxAutostartService : IAutostartService
         catch (Exception ex)
         {
             Trace.TraceError($"Unable to update Pankin autostart: {ex.Message}");
+        }
+    }
+
+    public void RefreshApplicationDesktopEntry()
+    {
+        try
+        {
+            var command = _launchCommandProvider();
+            if (command.Count == 0 ||
+                Path.GetFileNameWithoutExtension(command[0]).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            bool exists = File.Exists(_applicationDesktopFilePath);
+            bool isAppImage = command[0].EndsWith(".AppImage", StringComparison.OrdinalIgnoreCase);
+            if (!exists && !isAppImage)
+            {
+                return;
+            }
+
+            var icon = ResolveApplicationIcon(_applicationDesktopFilePath, exists);
+            var exec = BuildExecValue(command, "--toggle");
+
+            var content = new StringBuilder()
+                .AppendLine("[Desktop Entry]")
+                .AppendLine("Type=Application")
+                .AppendLine("Name=Pankin")
+                .AppendLine("Comment=Pankin Desktop Assistant")
+                .AppendLine($"Exec={exec}")
+                .AppendLine($"Icon={icon}")
+                .AppendLine("Terminal=false")
+                .AppendLine("StartupNotify=false")
+                .AppendLine("Categories=Utility;")
+                .AppendLine("StartupWMClass=pankin")
+                .ToString();
+
+            WriteDesktopFileIfChanged(_applicationDesktopFilePath, content);
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"Unable to update Pankin application desktop entry: {ex.Message}");
         }
     }
 }

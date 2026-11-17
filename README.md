@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4?style=flat-square&logo=dotnet&logoColor=white" alt=".NET 8 / 10" />
   <img src="https://img.shields.io/badge/Avalonia%20UI-11.1.3-7B7CF8?style=flat-square" alt="Avalonia UI 11.1.3" />
   <img src="https://img.shields.io/badge/Wayland-GNOME%20%7C%20Niri%20%7C%20X11-22D3EE?style=flat-square" alt="Wayland / Niri / X11" />
-  <img src="https://img.shields.io/badge/Version-0.5.0-5B57E8?style=flat-square" alt="Version 0.5.0" />
+  <img src="https://img.shields.io/badge/Version-0.5.1-5B57E8?style=flat-square" alt="Version 0.5.1" />
   <img src="https://img.shields.io/badge/License-MIT-10B981?style=flat-square" alt="MIT License" />
 </p>
 
@@ -97,7 +97,7 @@
 
 ## 📸 实机演示
 
-以下截图均实拍自 **Ubuntu 26.04 LTS + Niri Wayland** 真实桌面环境（`Pankin v0.5.0`）：
+以下截图均实拍自 **Ubuntu 26.04 LTS + Niri Wayland** 真实桌面环境（`Pankin v0.5.1`）：
 
 <table>
   <tr>
@@ -135,7 +135,7 @@
 
 ## 📦 安装与运行
 
-当前源码版本为 **0.5.0**，可前往 [GitHub Releases](https://github.com/demgkp1/Pankin/releases) 下载对应安装包，或按文末脚本本地打包。
+当前源码版本为 **0.5.1**，可前往 [GitHub Releases](https://github.com/demgkp1/Pankin/releases) 下载对应安装包，或按文末脚本本地打包。
 
 ### 1. 系统依赖
 
@@ -147,7 +147,7 @@ sudo apt install -y plocate xclip wl-clipboard libnotify-bin libgdk-pixbuf-2.0-0
 ### 2. Debian 软件包安装（`.deb`，推荐）
 
 ```bash
-sudo apt install ./pankin_0.5.0_amd64.deb
+sudo apt install ./pankin_0.5.1_amd64.deb
 ```
 
 安装完成后即可在应用菜单启动 **Pankin**，或在终端直接运行 `pankin`。
@@ -155,8 +155,8 @@ sudo apt install ./pankin_0.5.0_amd64.deb
 ### 3. AppImage 免安装运行
 
 ```bash
-chmod +x Pankin-0.5.0-x86_64.AppImage
-./Pankin-0.5.0-x86_64.AppImage
+chmod +x Pankin-0.5.1-x86_64.AppImage
+./Pankin-0.5.1-x86_64.AppImage
 ```
 
 > **AppImage 使用建议**
@@ -178,7 +178,7 @@ chmod +x Pankin-0.5.0-x86_64.AppImage
 pankin --autostart
 
 # AppImage 免安装版
-/path/to/Pankin-0.5.0-x86_64.AppImage --autostart
+/path/to/Pankin-0.5.1-x86_64.AppImage --autostart
 ```
 
 在 `~/.config/niri/config.kdl` 中添加开机自启：
@@ -230,7 +230,7 @@ Pankin.sln
 ├── src/Pankin.Platform.Linux        # Linux 系统适配（XDG 扫描、plocate、Wayland/X11 剪贴板、Niri/Sway/Hyprland/X11 窗口探测）
 ├── src/Pankin.Desktop               # Avalonia 11 UI 桌面端（Graphite Glass 视觉系统、托盘常驻）
 ├── tests/Pankin.Core.Tests          # 核心业务单元测试（379 Tests）
-├── tests/Pankin.Linux.Tests         # Linux 平台回归测试（75 Tests）
+├── tests/Pankin.Linux.Tests         # Linux 平台回归测试（80 Tests）
 └── tests/Pankin.Launcher.Verification # GUI 与图标渲染集成验证
 ```
 
@@ -258,8 +258,8 @@ bash scripts/package-linux.sh
 ```
 
 打包产物将输出至 `artifacts/` 目录：
-* `artifacts/pankin_0.5.0_amd64.deb`
-* `artifacts/Pankin-0.5.0-x86_64.AppImage`
+* `artifacts/pankin_0.5.1_amd64.deb`
+* `artifacts/Pankin-0.5.1-x86_64.AppImage`
 * `artifacts/SHA256SUMS.txt`
 * `artifacts/pankin.svg` / `artifacts/pankin.png`
 

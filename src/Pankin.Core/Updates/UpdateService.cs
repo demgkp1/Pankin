@@ -339,6 +339,7 @@ public sealed class UpdateService : IUpdateService, IDisposable
             }
 
             File.Move(partial, target, true);
+            EnsureExecutablePermissions(target);
             CacheReady(target, expectedHash);
         }
         finally
@@ -384,6 +385,7 @@ public sealed class UpdateService : IUpdateService, IDisposable
 
     private void CacheReady(string path, string hash)
     {
+        EnsureExecutablePermissions(path);
         _readyPath = path;
         DownloadProgress = 1.0;
         SetState(UpdateState.Ready);
@@ -400,8 +402,33 @@ public sealed class UpdateService : IUpdateService, IDisposable
                 if (files.Length > 0)
                 {
                     _readyPath = files[0];
+                    EnsureExecutablePermissions(_readyPath);
                 }
             }
+        }
+        catch { }
+    }
+
+    private static void EnsureExecutablePermissions(string path)
+    {
+        if (OperatingSystem.IsWindows() ||
+            !Path.GetExtension(path).Equals(".AppImage", StringComparison.OrdinalIgnoreCase) ||
+            !File.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            File.SetUnixFileMode(
+                path,
+                UnixFileMode.UserRead |
+                UnixFileMode.UserWrite |
+                UnixFileMode.UserExecute |
+                UnixFileMode.GroupRead |
+                UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead |
+                UnixFileMode.OtherExecute);
         }
         catch { }
     }

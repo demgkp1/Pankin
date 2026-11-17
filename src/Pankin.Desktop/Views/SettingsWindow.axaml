@@ -139,7 +139,7 @@
 
                         <!-- 底部版本信息 -->
                         <TextBlock Grid.Row="2"
-                                   Text="Pankin v0.5.0 (Ubuntu Linux)"
+                                   Text="Pankin v0.5.1 (Ubuntu Linux)"
                                    Classes="caption"
                                    HorizontalAlignment="Center"
                                    Margin="0,8,0,0" />

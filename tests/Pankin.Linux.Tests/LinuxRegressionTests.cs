@@ -24,7 +24,10 @@ public sealed class LinuxRegressionTests : IDisposable
     }
 
     private LinuxAutostartService Autostart(params string[] command) => new(Path.Combine(_root, "autostart"), () => command);
+    private LinuxAutostartService AutostartWithApps(params string[] command) =>
+        new(Path.Combine(_root, "autostart"), () => command, Path.Combine(_root, "applications"));
     private string DesktopPath => Path.Combine(_root, "autostart", "pankin.desktop");
+    private string AppDesktopPath => Path.Combine(_root, "applications", "pankin.desktop");
 
     [Fact]
     public void AutostartIsBomlessAndRunsPersistentAppImageInBackground()
@@ -87,6 +90,91 @@ public sealed class LinuxRegressionTests : IDisposable
         Assert.True(process.ExitCode == 0, errors);
         await WaitForAsync(() => File.Exists(image + ".args"));
         Assert.Equal("--autostart", File.ReadAllText(image + ".args"));
+    }
+
+    [Fact]
+    public void RefreshApplicationDesktopEntryUpdatesStaleAppImageAndPreservesValidIcon()
+    {
+        var iconPath = Path.Combine(_root, "icons", "pankin.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(iconPath)!);
+        File.WriteAllText(iconPath, "png");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(AppDesktopPath)!);
+        File.WriteAllText(AppDesktopPath,
+            $"[Desktop Entry]\nType=Application\nName=Pankin\nExec=\"/old/Pankin-0.4.0.AppImage\" --toggle\nIcon={iconPath}\n");
+
+        var newImage = Executable("apps/Pankin-0.5.0.AppImage");
+        AutostartWithApps(newImage).RefreshApplicationDesktopEntry();
+
+        var content = File.ReadAllText(AppDesktopPath);
+        Assert.Contains($"Exec=\"{newImage}\" --toggle", content);
+        Assert.Contains($"Icon={iconPath}", content);
+        Assert.Contains("StartupWMClass=pankin", content);
+    }
+
+    [Fact]
+    public void RefreshApplicationDesktopEntryFallsBackIconWhenCustomPathMissing()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(AppDesktopPath)!);
+        File.WriteAllText(AppDesktopPath,
+            "[Desktop Entry]\nType=Application\nName=Pankin\nExec=\"/old/Pankin.AppImage\"\nIcon=/does/not/exist/pankin.png\n");
+
+        var newImage = Executable("apps/Pankin.AppImage");
+        AutostartWithApps(newImage).RefreshApplicationDesktopEntry();
+
+        var content = File.ReadAllText(AppDesktopPath);
+        Assert.Contains($"Exec=\"{newImage}\" --toggle", content);
+        Assert.Contains("Icon=pankin", content);
+    }
+
+    [Fact]
+    public void RefreshApplicationDesktopEntryCreatesEntryForAppImageWhenMissing()
+    {
+        var image = Executable("apps/Pankin%20.AppImage");
+        AutostartWithApps(image).RefreshApplicationDesktopEntry();
+
+        Assert.True(File.Exists(AppDesktopPath));
+        var bytes = File.ReadAllBytes(AppDesktopPath);
+        Assert.Equal((byte)'[', bytes[0]);
+        var content = Encoding.UTF8.GetString(bytes);
+        Assert.Contains("Exec=\"/usr/bin/env\" \"--\"", content);
+        Assert.Contains("--toggle", content);
+        Assert.Contains("Icon=pankin", content);
+        Assert.Contains("Categories=Utility;", content);
+        Assert.Contains("StartupWMClass=pankin", content);
+    }
+
+    [Fact]
+    public void RefreshApplicationDesktopEntrySkipsDotnetAndMissingNonAppImageBinary()
+    {
+        AutostartWithApps("/usr/bin/dotnet", "/opt/Pankin.Desktop.dll").RefreshApplicationDesktopEntry();
+        Assert.False(File.Exists(AppDesktopPath));
+
+        AutostartWithApps("/usr/bin/pankin").RefreshApplicationDesktopEntry();
+        Assert.False(File.Exists(AppDesktopPath));
+    }
+
+    [Fact]
+    public void RefreshApplicationDesktopEntryAndSetAutostartAreIdempotent()
+    {
+        var image = Executable("apps/Pankin.AppImage");
+        var service = AutostartWithApps(image);
+        service.SetAutostart(true);
+        service.RefreshApplicationDesktopEntry();
+
+        var originalAutostartContent = File.ReadAllText(DesktopPath);
+        var originalAppContent = File.ReadAllText(AppDesktopPath);
+        var sentinelTime = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(DesktopPath, sentinelTime);
+        File.SetLastWriteTimeUtc(AppDesktopPath, sentinelTime);
+
+        service.SetAutostart(true);
+        service.RefreshApplicationDesktopEntry();
+
+        Assert.Equal(sentinelTime, File.GetLastWriteTimeUtc(DesktopPath));
+        Assert.Equal(sentinelTime, File.GetLastWriteTimeUtc(AppDesktopPath));
+        Assert.Equal(originalAutostartContent, File.ReadAllText(DesktopPath));
+        Assert.Equal(originalAppContent, File.ReadAllText(AppDesktopPath));
     }
 
     [Fact]
